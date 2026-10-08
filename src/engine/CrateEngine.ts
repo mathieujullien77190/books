@@ -138,6 +138,7 @@ export class CrateEngine {
   // vecteurs de travail
   private readonly _tv = new THREE.Vector3();
   private birdLabel: HTMLElement | null = null;
+  private readonly _box = new THREE.Box3();
 
   /** `transparent` : fond et sol invisibles (seules les ombres restent), pour la poser sur un autre décor. */
   constructor(
@@ -765,8 +766,10 @@ export class CrateEngine {
       el.style.opacity = '0';
       return;
     }
-    const p = bird.getWorldPosition(this._tv);
-    p.y += 0.2;
+    // la tête est le haut de l'oiseau perché : sommet de sa boîte englobante, légèrement en dessous
+    const box = this._box.setFromObject(bird);
+    const p = box.getCenter(this._tv);
+    p.y = box.max.y - (box.max.y - box.min.y) * 0.08;
     p.project(this.camera);
     const w = this.canvas.clientWidth;
     const h = this.canvas.clientHeight;

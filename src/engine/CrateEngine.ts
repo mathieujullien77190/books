@@ -1135,15 +1135,18 @@ export class CrateEngine {
       const c = this.crate(cid)!;
       const rig = this.crateRigs.get(cid)!;
       const fr = crateFrame(c, Math.max(...list.map((b) => b.h)));
-      const st = newFillState(fr, Math.max(...list.map((k) => k.h)));
-      const deepest = Math.max(...list.map((k) => k.d));
+      // livres à plat tournés de 90° : leur hauteur et leur profondeur s'échangent pour le rangement
+      const turn = !!c.flatTurn && !!fr && fr.mode === 'flat';
+      const eff = (k: Book): Book => (turn ? { ...k, h: k.d, d: k.h } : k);
+      const st = newFillState(fr, Math.max(...list.map((k) => eff(k).h)));
+      const deepest = Math.max(...list.map((k) => eff(k).d));
       const standQ = fr && bookQuat(fr.R, fr.U, fr.F);
       // à plat la couverture est toujours dessus : la hauteur du livre court vers -R (sinon bookQuat
       // retourne l'épaisseur et la 4e de couverture se retrouve dessus)
       const flatQ = fr && bookQuat(fr.U, fr.R.clone().negate(), fr.F);
       for (const b of list) {
         const br = this.bookRig(b);
-        const ru = fr ? placeInCrate(fr, st, b) : null;
+        const ru = fr ? placeInCrate(fr, st, eff(b)) : null;
         if (!ru || !fr) {
           if (fr) full++;
           toPile(b, br);
@@ -1158,7 +1161,7 @@ export class CrateEngine {
         // À plat, la pile se cale sur son livre le plus profond et les autres y sont centrés.
         const fOf = (d: number): number =>
           d > fr.innerF ? -fr.innerF / 2 + T / 2 + d / 2 : fr.innerF / 2 + T / 2 - 0.1 - d / 2;
-        const f = !fr.front ? 0 : fOf(fr.mode === 'flat' ? deepest : b.d);
+        const f = !fr.front ? 0 : fOf(fr.mode === 'flat' ? deepest : eff(b).d);
         // à plat, la pile n'est jamais parfaite : léger décalage gauche-droite / avant-arrière et léger
         // quart de tour, fixes pour un même livre (tirés de son id, pas de hasard à chaque rendu)
         const jit = fr.mode === 'flat' ? stackJitter(b.id) : null;
@@ -1180,6 +1183,8 @@ export class CrateEngine {
           .copy(rig.group.quaternion)
           .multiply(fr.mode === 'stand' ? standQ! : flatQ!)
           .multiply(this._q);
+        // rotation de 90° vers la droite autour de la verticale (l'axe local X du livre couché)
+        if (turn) br.quat.multiply(this._q.setFromAxisAngle(AXES.x, -Math.PI / 2));
         // le livre est couché : son axe local X (l'épaisseur) pointe vers le haut, il pivote autour
         if (jit) br.quat.multiply(this._q.setFromAxisAngle(AXES.x, jit.yaw));
       }

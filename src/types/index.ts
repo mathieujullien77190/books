@@ -23,6 +23,8 @@ export type Crate = {
   flat?: boolean;
   /** Les livres plus profonds que la caisse y sont admis : calés au fond, ils dépassent devant. */
   overhang?: boolean;
+  /** Livres à plat tournés de 90° vers la droite (la tranche ne regarde plus l'observateur). */
+  flatTurn?: boolean;
 };
 
 export type IsbnConfidence = 'verifie' | 'bonne' | 'moyenne';

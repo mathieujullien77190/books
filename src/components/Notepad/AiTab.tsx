@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import Button from '@/components/ui/Button';
 
-import { AI_ERRORS, KEY_STORAGE } from './constants';
+import { AI_ERRORS, EDIT_TOKEN_KEY, KEY_STORAGE } from './constants';
 import type { AiTurn } from './types';
 
 /** La clé reste dans ce navigateur (jamais en base) : chacun utilise la sienne. */
@@ -13,6 +13,15 @@ const readKey = (): string => {
     return localStorage.getItem(KEY_STORAGE) ?? '';
   } catch {
     return '';
+  }
+};
+
+/** Jeton d'Édition délivré par le serveur : prouve que le code a été saisi (les modifications de Claude en ont besoin). */
+const readEditToken = (): string | null => {
+  try {
+    return localStorage.getItem(EDIT_TOKEN_KEY);
+  } catch {
+    return null;
   }
 };
 
@@ -25,7 +34,7 @@ const writeKey = (key: string): void => {
   }
 };
 
-export const AiTab = () => {
+export const AiTab = ({ onChanged }: { onChanged?: () => void }) => {
   const [key, setKey] = useState(readKey);
   const [question, setQuestion] = useState('');
   const [turns, setTurns] = useState<AiTurn[]>([]);
@@ -33,7 +42,9 @@ export const AiTab = () => {
   const [error, setError] = useState('');
   const end = useRef<HTMLDivElement>(null);
 
-  useEffect(() => end.current?.scrollIntoView({ block: 'nearest' }), [turns, busy]);
+  useEffect(() => {
+    end.current?.scrollIntoView({ block: 'nearest' });
+  }, [turns, busy]);
 
   const ask = async (e: FormEvent): Promise<void> => {
     e.preventDefault();
@@ -48,11 +59,23 @@ export const AiTab = () => {
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: key.trim(), messages: next }),
+        body: JSON.stringify({
+          key: key.trim(),
+          messages: next.map(({ role, content }) => ({ role, content })),
+          token: readEditToken(),
+        }),
       });
-      const data = (await res.json()) as { ok: boolean; text?: string; reason?: string };
-      if (data.ok && data.text) setTurns([...next, { role: 'assistant', content: data.text }]);
-      else {
+      const data = (await res.json()) as {
+        ok: boolean;
+        text?: string;
+        reason?: string;
+        changed?: boolean;
+        actions?: string[];
+      };
+      if (data.ok && data.text) {
+        setTurns([...next, { role: 'assistant', content: data.text, actions: data.actions }]);
+        if (data.changed) onChanged?.();
+      } else {
         setTurns(turns); // la question reste à poser : on la remet dans le champ
         setQuestion(q);
         setError(AI_ERRORS[data.reason ?? 'error'] ?? AI_ERRORS.error!);
@@ -93,6 +116,11 @@ export const AiTab = () => {
                 t.role === 'user' ? 'bg-ink/5 text-ink' : 'bg-accent/10 text-ink'
               }`}
             >
+              {t.actions?.map((a) => (
+                <span key={a} className="mb-1 block text-xs text-muted">
+                  ✅ {a}
+                </span>
+              ))}
               {t.content}
             </p>
           ))}

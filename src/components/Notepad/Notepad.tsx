@@ -7,8 +7,8 @@ import { NotesTab } from './NotesTab';
 import { TABS } from './constants';
 import type { NotepadProps, NotepadTab } from './types';
 
-export const Notepad = ({ className = '' }: NotepadProps) => {
-  const [open, setOpen] = useState(false);
+export const Notepad = ({ className = '', defaultOpen = false, onChanged }: NotepadProps) => {
+  const [open, setOpen] = useState(defaultOpen);
   const [tab, setTab] = useState<NotepadTab>('notes');
 
   return (
@@ -50,7 +50,7 @@ export const Notepad = ({ className = '' }: NotepadProps) => {
           </button>
         </div>
       </div>
-      {open && (tab === 'notes' ? <NotesTab /> : <AiTab />)}
+      {open && (tab === 'notes' ? <NotesTab /> : <AiTab onChanged={onChanged} />)}
     </section>
   );
 };

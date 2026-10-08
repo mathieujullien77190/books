@@ -18,7 +18,11 @@ export const TABS: { id: NotepadTab; label: string }[] = [
 /** Clé localStorage de la clé API de la personne (propre à chaque navigateur). */
 export const KEY_STORAGE = 'anthropic-api-key';
 
+/** Clé localStorage du jeton d'Édition (voir CratesApp/helpers.ts). */
+export const EDIT_TOKEN_KEY = 'edit-token';
+
 export const AI_ERRORS: Record<string, string> = {
+  'no-db': 'La base n’est pas configurée : Claude ne peut pas consulter la bibliothèque.',
   'no-key': 'Colle ta clé API Anthropic pour interroger Claude.',
   'bad-key': 'Clé refusée par Anthropic : vérifie-la.',
   'rate-limit': 'Trop de demandes : réessaie dans un instant.',

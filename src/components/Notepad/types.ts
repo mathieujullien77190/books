@@ -3,8 +3,17 @@ export type NotepadStatus = 'loading' | 'saving' | 'saved' | 'offline';
 export type NotepadTab = 'notes' | 'ai';
 
 /** Un message de la conversation avec Claude. */
-export type AiTurn = { role: 'user' | 'assistant'; content: string };
+export type AiTurn = {
+  role: 'user' | 'assistant';
+  content: string;
+  /** Modifications faites par Claude pendant cette réponse (affichage seulement). */
+  actions?: string[];
+};
 
 export type NotepadProps = {
+  /** Claude a modifié la bibliothèque : la scène doit se recharger depuis la base. */
+  onChanged?: () => void;
+  /** Ouvert dès l'affichage (feuille du téléphone) ; replié par défaut. */
+  defaultOpen?: boolean;
   className?: string;
 };

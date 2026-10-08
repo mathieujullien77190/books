@@ -206,7 +206,7 @@ export const BookDetail = ({
               it.id === null ? (
                 <span
                   key={`missing-${it.num}`}
-                  className="cursor-default rounded-lg border border-dashed border-ink/25 px-1.5 py-0.5 text-xs text-muted"
+                  className="cursor-default rounded-lg border border-dashed border-ink/40 bg-ink/[0.06] px-1.5 py-0.5 text-xs leading-tight text-muted"
                   title={`${series.name} ${it.label} : manquant`}
                 >
                   {it.label}

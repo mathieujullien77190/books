@@ -81,7 +81,7 @@ export const CratesApp = ({ className = '' }: CratesAppProps) => {
           🎯
         </IconButton>
       )}
-      {snap.loading && <LoadingOverlay message="Chargement de la bibliothèque…" />}
+      {snap.loading && <LoadingOverlay message="Chargement de la bibliothèque…" bare={bg} />}
       {snap.missingBrowse && (
         <MissingBar
           browse={snap.missingBrowse}

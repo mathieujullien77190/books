@@ -3,9 +3,9 @@ export const KEY_STORAGE = 'anthropic-api-key';
 
 /** Modèles proposés (du moins cher au plus puissant) ; la clé est envoyée au serveur. */
 export const MODEL_OPTIONS: { id: string; label: string }[] = [
-  { id: 'haiku', label: 'Haiku · économique' },
-  { id: 'sonnet', label: 'Sonnet · équilibré' },
-  { id: 'opus', label: 'Opus · le plus puissant' },
+  { id: 'haiku', label: 'Haiku' },
+  { id: 'sonnet', label: 'Sonnet' },
+  { id: 'opus', label: 'Opus' },
 ];
 
 export const MODEL_STORAGE = 'ai-model';

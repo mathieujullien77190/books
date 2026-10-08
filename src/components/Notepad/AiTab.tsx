@@ -70,6 +70,8 @@ const timeOf = (at?: number): string =>
 export const AiTab = ({ onChanged }: { onChanged?: () => void }) => {
   const [key, setKey] = useState(readKey);
   const [model, setModel] = useState(readModel);
+  /** Champ de la clé replié derrière le bouton 🔑 ; ouvert d'office tant qu'il n'y a pas de clé. */
+  const [showKey, setShowKey] = useState(() => !readKey());
   const [question, setQuestion] = useState('');
   const [turns, setTurns] = useState<AiTurn[]>([]);
   const [busy, setBusy] = useState(false);
@@ -179,41 +181,57 @@ export const AiTab = ({ onChanged }: { onChanged?: () => void }) => {
 
   return (
     <div className="border-t border-ink/10 px-3.5 py-2">
-      <label className="mb-1 block text-xs text-muted" htmlFor="aiKey">
-        Clé API Anthropic · gardée dans ce navigateur uniquement
-      </label>
-      <input
-        id="aiKey"
-        type="password"
-        className="mb-2 w-full rounded-lg border border-ink/10 bg-white px-2.5 py-1.5 text-sm text-ink"
-        placeholder="sk-ant-…"
-        autoComplete="off"
-        spellCheck={false}
-        value={key}
-        onChange={(e) => {
-          setKey(e.target.value);
-          writeKey(e.target.value.trim());
-        }}
-      />
-      <select
-        aria-label="Modèle"
-        className="mb-2 w-full rounded-lg border border-ink/10 bg-white px-2.5 py-1.5 text-sm text-ink"
-        value={model}
-        onChange={(e) => {
-          setModel(e.target.value);
-          try {
-            localStorage.setItem(MODEL_STORAGE, e.target.value);
-          } catch {
-            // stockage indisponible : le choix vaut pour la session
-          }
-        }}
-      >
-        {MODEL_OPTIONS.map((o) => (
-          <option key={o.id} value={o.id}>
-            {o.label}
-          </option>
-        ))}
-      </select>
+      <div className="mb-2 flex items-center gap-1.5">
+        <button
+          type="button"
+          className={`h-8 w-9 shrink-0 cursor-pointer rounded-lg border bg-white p-0 text-base ${
+            showKey ? 'border-ink' : 'border-ink/10 hover:border-accent'
+          }`}
+          title="Clé API Anthropic (gardée dans ce navigateur uniquement)"
+          aria-label="Clé API Anthropic"
+          aria-expanded={showKey}
+          onClick={() => setShowKey((v) => !v)}
+        >
+          🔑
+        </button>
+        {showKey && (
+          <input
+            id="aiKey"
+            type="password"
+            className="h-8 min-w-0 flex-1 rounded-lg border border-ink/10 bg-white px-2.5 text-sm text-ink"
+            placeholder="sk-ant-…"
+            aria-label="Clé API Anthropic"
+            autoComplete="off"
+            spellCheck={false}
+            value={key}
+            onChange={(e) => {
+              setKey(e.target.value);
+              writeKey(e.target.value.trim());
+            }}
+          />
+        )}
+        <select
+          aria-label="Modèle"
+          className={`h-8 rounded-lg border border-ink/10 bg-white px-2 text-sm text-ink ${
+            showKey ? 'w-28 shrink-0' : 'min-w-0 flex-1'
+          }`}
+          value={model}
+          onChange={(e) => {
+            setModel(e.target.value);
+            try {
+              localStorage.setItem(MODEL_STORAGE, e.target.value);
+            } catch {
+              // stockage indisponible : le choix vaut pour la session
+            }
+          }}
+        >
+          {MODEL_OPTIONS.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      </div>
       {(turns.length > 0 || busy) && (
         <div className="mb-2 flex max-h-72 [scrollbar-width:thin] flex-col gap-1.5 overflow-y-auto rounded-xl bg-[#efeae2] p-2 text-sm">
           {turns.map((t, i) => {

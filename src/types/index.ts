@@ -54,6 +54,8 @@ export type Book = {
   seriesTotal?: number;
   /** Nom de la série et numéro du tome, quand le titre ne les donne pas clairement (prioritaires sur le titre). */
   series?: string;
+  /** Ne pas lister les tomes manquants de cette série (séries que l'on ne veut pas compléter). */
+  skipMissing?: boolean;
   volume?: number;
   /** Fiabilité de l'ISBN : lu sur le livre (verifie), édition très probable (bonne) ou incertaine (moyenne). */
   isbnConfidence?: IsbnConfidence;

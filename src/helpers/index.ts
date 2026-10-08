@@ -96,6 +96,7 @@ export const missingVolumes = (books: Book[]): MissingVolume[] => {
       owned: Set<number>;
       total: number;
       books: { num: number; book: Book }[];
+      skip: boolean;
     }
   >();
   for (const b of books) {
@@ -108,14 +109,18 @@ export const missingVolumes = (books: Book[]): MissingVolume[] => {
       owned: new Set<number>(),
       total: 0,
       books: [],
+      skip: false,
     };
+    g.skip ||= !!b.skipMissing;
     g.books.push({ num: v.num, book: b });
     for (let n = v.num; n <= v.last; n++) g.owned.add(n);
     g.total = Math.max(g.total, b.seriesTotal ?? 0, v.last);
     groups.set(key, g);
   }
   const out: MissingVolume[] = [];
-  for (const g of [...groups.values()].sort((a, b) => a.name.localeCompare(b.name)))
+  for (const g of [...groups.values()]
+    .filter((x) => !x.skip)
+    .sort((a, b) => a.name.localeCompare(b.name)))
     for (let n = 1; n <= g.total; n++)
       if (!g.owned.has(n)) {
         const nearest = g.books.reduce((a, b) =>

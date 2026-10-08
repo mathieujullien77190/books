@@ -42,16 +42,18 @@ export const seriesOf = (
   const items: SeriesItem[] = [];
   const owned = new Set<number>();
   let total = 0;
+  let skip = false;
   for (const b of allBooks) {
     const bv = volumeOf(b);
     if (!bv || bv.prefix.toLowerCase() !== key) continue;
     items.push({ id: b.id, label: volumeLabel(bv), num: bv.num });
     for (let n = bv.num; n <= bv.last; n++) owned.add(n);
     total = Math.max(total, b.seriesTotal ?? 0, bv.last);
+    skip ||= !!b.skipMissing;
   }
   // les numéros connus de la série (jusqu'au dernier possédé ou au total enregistré) mais absents
   // de la bibliothèque sont listés comme manquants, La Hulotte comprise
-  for (let n = 1; n <= total; n++)
+  for (let n = 1; n <= (skip ? 0 : total); n++)
     if (!owned.has(n)) items.push({ id: null, label: `${v.mark}${n}`, num: n });
   return { name: v.prefix, items: items.sort((a, b) => a.num - b.num), owned: owned.size, total };
 };

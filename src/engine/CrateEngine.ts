@@ -96,7 +96,7 @@ const stackJitter = (id: string): { dr: number; df: number; yaw: number } => {
 const MESANGE_PERCH = 'P5';
 const MESANGE_MARGIN = 0.4;
 /** Elle s'enfonce un peu dans le dessus de la caisse pour que ses pattes touchent le bois. */
-const MESANGE_SINK = 0.08;
+const MESANGE_SINK = 0.16;
 
 /** Apparition des livres au chargement : nombre de livres par vague et délai entre deux vagues. */
 const REVEAL_BATCH = 12;

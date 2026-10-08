@@ -25,7 +25,7 @@ import {
   type BookRig,
 } from './books';
 import { applyGravity, crateBounds, nextStepPosition, type Bounds } from './cratePlacement';
-import { LITE_KEY, NEIGHBOR_SCALE, OPEN_BOOK_SCALE } from './constants';
+import { LITE_KEY, OPEN_BOOK_SCALE } from './constants';
 import { applyBookPatch, type BookPatch } from './bookPatch';
 import { buildCrate, forgetCrateLabel, setCrateLabel, uprightLabel, type CrateRig } from './crate';
 import { Decor } from './decor';
@@ -39,6 +39,7 @@ import { buildMoveGizmo, type MoveGizmo } from './moveGizmo';
 import { Q_TRANCHE, extents, footprint, overlaps, quatOf, rotatedQuat } from './orientation';
 import { Persistence } from './persistence';
 import { buildRotateGizmo, type RotateGizmo } from './rotateGizmo';
+import { RenderLoop } from './loop';
 import { Stage } from './stage';
 import { Showcase, focusCrateView, recenterView } from './view';
 import { buildGrid, buildWorldAxes, type WorldAxes } from './worldAxes';
@@ -54,7 +55,7 @@ export type { BookPatch };
 export class CrateEngine {
   private readonly canvas: HTMLCanvasElement;
   private readonly stage: Stage;
-  private readonly timer = new THREE.Timer();
+  private readonly loop: RenderLoop;
 
   private readonly crateRigs = new Map<Id, CrateRig>();
   private readonly hitboxes: THREE.Mesh[] = [];
@@ -118,10 +119,8 @@ export class CrateEngine {
   private readonly grid: THREE.GridHelper;
   private mode: Mode = 'view';
   private texTimer = 0;
-  private lastBirdFrame = 0;
   /** Premier rendu déjà fait derrière l'indicateur de chargement. */
   private warmed = false;
-  private raf = 0;
   private disposed = false;
 
   private readonly listeners = new Set<() => void>();
@@ -130,11 +129,6 @@ export class CrateEngine {
   private snapCrates: Crate[] = [];
   private snapBooks: Book[] = [];
   private snapshot: Snapshot;
-
-  // vecteurs de travail
-  private readonly _tv = new THREE.Vector3();
-  private birdLabel: HTMLElement | null = null;
-  private readonly _box = new THREE.Box3();
 
   /** `transparent` : fond et sol invisibles (seules les ombres restent), pour la poser sur un autre décor. */
   constructor(
@@ -210,7 +204,21 @@ export class CrateEngine {
 
     this.refresh();
     this.recenter();
-    this.tick();
+    this.loop = new RenderLoop({
+      stage,
+      showcase: this.showcase,
+      missing: this.missing,
+      decor: this.decor,
+      canvas,
+      bookRigs: this.bookRigs,
+      openId: () => this.openId,
+      openBack: () => this.openBack,
+      isPortrait: () => this.isPortrait(),
+      finishExit: () => this.finishExit(),
+      hovered: () => this.input.hovered,
+      updateHover: () => this.input.updateHover(),
+    });
+    this.loop.start();
     void loadMesange().then((bird) => {
       if (!bird) return;
       if (this.disposed) return disposeGroup(bird.group);
@@ -743,7 +751,7 @@ export class CrateEngine {
   /** Élément HTML de l'infobulle (titre du livre survolé), positionné par le moteur. */
   /** Étiquette HTML que le moteur colle à côté de la mésange (déplacée à chaque image, sans passer par React). */
   attachBirdLabel(el: HTMLElement | null): void {
-    this.birdLabel = el;
+    this.loop.birdLabel.attach(el);
   }
 
   attachTooltip(el: HTMLElement | null): void {
@@ -753,7 +761,7 @@ export class CrateEngine {
   dispose(): void {
     this.disposed = true;
     this.decor.disposeBird(this.stage.scene);
-    cancelAnimationFrame(this.raf);
+    this.loop.stop();
     window.clearTimeout(this.texTimer);
     this.input.detach();
     for (const id of [...this.crateRigs.keys()]) this.removeCrateRig(id);
@@ -772,30 +780,6 @@ export class CrateEngine {
     return this.crates.find((c) => c.id === id);
   }
 
-  /** Colle l'étiquette de la mésange à sa position écran (cachée si la mésange l'est ou si un livre est sorti). */
-  private placeBirdLabel(): void {
-    const el = this.birdLabel;
-    const bird = this.decor.group;
-    if (!el) return;
-    if (!bird?.visible || this.openId) {
-      el.style.opacity = '0';
-      el.style.visibility = 'hidden'; // le lien qu'elle contient ne doit plus être cliquable
-      return;
-    }
-    // la tête est le haut de l'oiseau perché : sommet de sa boîte englobante, légèrement en dessous
-    const box = this._box.setFromObject(bird);
-    const p = box.getCenter(this._tv);
-    p.y = box.max.y - (box.max.y - box.min.y) * 0.08;
-    p.project(this.stage.camera);
-    const w = this.canvas.clientWidth;
-    const h = this.canvas.clientHeight;
-    el.style.transform = `translate(${((p.x + 1) / 2) * w}px, ${((1 - p.y) / 2) * h}px)`;
-    const shown = p.z < 1;
-    el.style.opacity = shown ? '1' : '0';
-    el.style.visibility = shown ? 'visible' : 'hidden';
-  }
-
-  // ---------- scène ----------
   private ensureCrateRig(c: Crate): CrateRig {
     let rig = this.crateRigs.get(c.id);
     const dims = crateDims(c);
@@ -902,52 +886,4 @@ export class CrateEngine {
     this.counts = counts;
     this.stats = stats;
   }
-
-  // ---------- boucle ----------
-  private readonly tick = (): void => {
-    if (this.disposed) return;
-    this.timer.update();
-    const dt = Math.min(this.timer.getDelta(), 0.05);
-    const k = 1 - Math.exp(-dt * 7);
-    this.showcase.update(
-      this.stage.camera,
-      this.openId ? this.bookRigs.get(this.openId) : undefined,
-      this.bookRigs,
-      this.openBack,
-      this.isPortrait(),
-      () => this.finishExit(),
-    );
-    this.missing.updateCamera(this.stage.camera, this.stage.controls.target, k);
-    this.decor.update(dt, this.timer.getElapsed());
-    // la mésange s'anime en continu : une image sur deux environ suffit (jamais si elle est cachée)
-    const now = performance.now();
-    if (this.decor.group?.visible && now - this.lastBirdFrame > 50) {
-      this.lastBirdFrame = now;
-      this.stage.touchFrame(); // pas touch : la mésange seule ne change pas les ombres
-    }
-    for (const rig of this.bookRigs.values()) {
-      this._tv.copy(rig.target);
-      if (rig === this.input.hovered && rig.id !== this.openId) this._tv.y += 0.15;
-      const s =
-        this.openId && !this.isPortrait() && this.showcase.neighbors.includes(rig.id)
-          ? NEIGHBOR_SCALE
-          : 1;
-      // un livre encore en mouvement (position, rotation ou taille) demande une nouvelle image
-      if (
-        rig.mesh.position.distanceToSquared(this._tv) > 1e-8 ||
-        1 - Math.abs(rig.mesh.quaternion.dot(rig.quat)) > 1e-9 ||
-        Math.abs(rig.mesh.scale.x - s) > 1e-5
-      )
-        this.stage.touch();
-      rig.mesh.position.lerp(this._tv, k);
-      rig.mesh.quaternion.slerp(rig.quat, k);
-      rig.mesh.scale.setScalar(rig.mesh.scale.x + (s - rig.mesh.scale.x) * k);
-    }
-    this.input.updateHover();
-    this.stage.controls.update();
-    if (this.stage.camera.position.y < 0.25) this.stage.camera.position.y = 0.25; // jamais sous le sol
-    this.placeBirdLabel();
-    this.stage.draw(!!this.openId);
-    this.raf = requestAnimationFrame(this.tick);
-  };
 }

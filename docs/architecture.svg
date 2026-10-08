@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 560" width="1000" height="560" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
+  <title>Architecture de la bibliothèque</title>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#1f2a37"/>
+    </marker>
+  </defs>
+  <rect width="1000" height="560" fill="#ffffff"/>
+
+  <!-- Navigateur -->
+  <rect x="20" y="20" width="430" height="520" rx="14" fill="#f3f7fb" stroke="#9db3c8" stroke-width="1.5"/>
+  <text x="40" y="48" font-size="15" font-weight="700" fill="#1f2a37">Navigateur</text>
+
+  <rect x="50" y="70" width="370" height="84" rx="10" fill="#ffffff" stroke="#1f2a37" stroke-width="1.5"/>
+  <text x="235" y="102" font-size="15" font-weight="700" text-anchor="middle" fill="#1f2a37">Interface React</text>
+  <text x="235" y="126" font-size="12.5" text-anchor="middle" fill="#5b6b7c">CratesApp · SidePanel · Notepad · BookDetail</text>
+
+  <rect x="50" y="230" width="370" height="280" rx="10" fill="#fff7ec" stroke="#b5651d" stroke-width="1.5"/>
+  <text x="235" y="262" font-size="15" font-weight="700" text-anchor="middle" fill="#1f2a37">CrateEngine (three.js)</text>
+  <text x="235" y="284" font-size="12.5" text-anchor="middle" fill="#5b6b7c">détient tout l'état : caisses, livres, mode, sélection</text>
+  <text x="235" y="304" font-size="12.5" text-anchor="middle" fill="#5b6b7c">pushHistory() → refresh() → sauvegarde → emit</text>
+
+  <rect x="72" y="326" width="326" height="160" rx="8" fill="#ffffff" stroke="#d9b48a" stroke-width="1"/>
+  <text x="235" y="350" font-size="12.5" font-weight="700" text-anchor="middle" fill="#1f2a37">Modules du moteur</text>
+  <g font-size="12.5" fill="#1f2a37" text-anchor="middle">
+    <text x="235" y="376">persistence · history</text>
+    <text x="235" y="398">cratePlacement · layout</text>
+    <text x="235" y="420">input · view</text>
+    <text x="235" y="442">missingPile · decor (mésange)</text>
+    <text x="235" y="464">books · crate · gizmos</text>
+  </g>
+
+  <!-- React <-> moteur -->
+  <line x1="150" y1="154" x2="150" y2="228" stroke="#1f2a37" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <text x="140" y="196" font-size="11.5" text-anchor="end" fill="#1f2a37">appels de méthodes</text>
+  <line x1="320" y1="228" x2="320" y2="156" stroke="#1f2a37" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <text x="330" y="196" font-size="11.5" fill="#1f2a37">subscribe / getSnapshot</text>
+
+  <!-- Serveur -->
+  <rect x="540" y="20" width="250" height="520" rx="14" fill="#f3f7fb" stroke="#9db3c8" stroke-width="1.5"/>
+  <text x="560" y="48" font-size="15" font-weight="700" fill="#1f2a37">Serveur Next.js (Vercel)</text>
+
+  <g stroke="#1f2a37" stroke-width="1.5" fill="#ffffff">
+    <rect x="560" y="70" width="210" height="64" rx="9"/>
+    <rect x="560" y="170" width="210" height="64" rx="9"/>
+    <rect x="560" y="270" width="210" height="64" rx="9"/>
+    <rect x="560" y="400" width="210" height="96" rx="9"/>
+  </g>
+  <g font-size="13.5" font-weight="700" fill="#1f2a37">
+    <text x="575" y="97">POST /api/edit</text>
+    <text x="575" y="197">GET /api/state</text>
+    <text x="575" y="297">POST /api/sync</text>
+    <text x="575" y="427">POST /api/ai</text>
+  </g>
+  <g font-size="11.5" fill="#5b6b7c">
+    <text x="575" y="118">code → jeton signé (HMAC)</text>
+    <text x="575" y="218">état + révision meta.rev</text>
+    <text x="575" y="318">refuse une révision périmée</text>
+    <text x="575" y="448">boucle d'outils : search_books,</text>
+    <text x="575" y="466">get_crate_contents, move_book,</text>
+    <text x="575" y="484">add_book, delete_book</text>
+  </g>
+
+  <!-- Données et services -->
+  <path d="M840 240 v90 c0 14 30 22 70 22 s70 -8 70 -22 v-90 c0 -14 -30 -22 -70 -22 s-70 8 -70 22 z" fill="#eaf5ea" stroke="#4a8a4a" stroke-width="1.5"/>
+  <ellipse cx="910" cy="240" rx="70" ry="22" fill="#d6ecd6" stroke="#4a8a4a" stroke-width="1.5"/>
+  <text x="910" y="291" font-size="14" font-weight="700" text-anchor="middle" fill="#1f2a37">MongoDB</text>
+  <text x="910" y="311" font-size="11.5" text-anchor="middle" fill="#5b6b7c">crates · books · meta</text>
+
+  <rect x="840" y="420" width="140" height="76" rx="10" fill="#fdf0f0" stroke="#b04a4a" stroke-width="1.5"/>
+  <text x="910" y="451" font-size="14" font-weight="700" text-anchor="middle" fill="#1f2a37">API Anthropic</text>
+  <text x="910" y="471" font-size="11.5" text-anchor="middle" fill="#5b6b7c">clé de la personne</text>
+
+  <!-- Flèches -->
+  <g stroke="#1f2a37" stroke-width="1.6" fill="none" marker-end="url(#arrow)">
+    <!-- interface → edit -->
+    <path d="M420 100 H560"/>
+    <!-- interface → ai -->
+    <path d="M420 132 H490 V448 H560"/>
+    <!-- moteur → state, sync -->
+    <path d="M420 270 H470 V202 H560"/>
+    <path d="M420 330 H560" />
+    <!-- serveur → base -->
+    <path d="M770 202 H800 V270 H840"/>
+    <path d="M770 302 H840"/>
+    <path d="M770 430 H800 V318 H840"/>
+    <!-- ai → anthropic -->
+    <path d="M770 468 H840"/>
+  </g>
+  <g font-size="11.5" fill="#1f2a37">
+    <text x="425" y="92">code d'Édition</text>
+    <text x="508" y="300" transform="rotate(-90 508 300)" text-anchor="middle">question + clé API</text>
+    <text x="425" y="262">hydrate</text>
+    <text x="425" y="352">état complet</text>
+    <text x="425" y="366">(800 ms)</text>
+  </g>
+</svg>

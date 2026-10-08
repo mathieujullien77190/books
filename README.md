@@ -67,6 +67,13 @@ Chaque personne saisit **sa propre clé API Anthropic** : elle reste dans son na
 envoyée au serveur que pour la requête en cours, et n'est ni enregistrée ni journalisée. Chaque question consomme
 du crédit sur le compte de la clé utilisée.
 
+## Architecture
+
+![Schéma d'architecture : interface React, moteur three.js, routes API, MongoDB et API Anthropic](docs/architecture.svg)
+
+L'état vit dans le moteur, pas dans React. Chaque modification passe par `pushHistory()` puis `refresh()`
+(placement, disposition des livres, sauvegarde, notification).
+
 ## Structure
 
 ```

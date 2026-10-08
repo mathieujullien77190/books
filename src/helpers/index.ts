@@ -76,6 +76,8 @@ export const volumeLabel = (v: Volume): string =>
 /** Série et numéro d'un livre : champs `series` / `volume` s'ils existent, sinon analyse du titre. */
 export const volumeOf = (b: Book): Volume | null => {
   if (b.series && b.volume) return { prefix: b.series, num: b.volume, last: b.volume, mark: 'T' };
+  // les cartes IGN (« Top 100 175 ») ne sont pas des séries
+  if (/IGN/.test(b.title)) return null;
   const v = parseVolume(b.title);
   // un nombre à quatre chiffres est une année (« Roumanie 2016 »), pas un numéro de tome
   return v && v.last < 1000 ? v : null;

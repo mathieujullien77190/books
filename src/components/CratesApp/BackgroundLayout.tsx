@@ -18,7 +18,7 @@ export const BackgroundLayout = ({ engine, snap, labels, openBook, lock }: Layou
         className="pointer-events-none fixed top-0 left-0 z-10 opacity-0 transition-opacity"
       >
         <a
-          href="https://books-zqje.vercel.app/"
+          href="https://books-mathieu-jullien.vercel.app/"
           target="_blank"
           rel="noopener noreferrer"
           className="pointer-events-auto absolute top-2 left-7 block w-max -translate-y-1/2 rounded-xl bg-white px-3 py-2 text-ink no-underline shadow-lg ring-1 ring-ink/15 hover:ring-accent"
@@ -26,7 +26,7 @@ export const BackgroundLayout = ({ engine, snap, labels, openBook, lock }: Layou
           {/* queue de la bulle, vers la mésange */}
           <span className="absolute top-1/2 -left-1.5 h-3 w-3 -translate-y-1/2 rotate-45 border-b border-l border-ink/15 bg-white" />
           <span className="relative block text-xs leading-tight font-semibold">
-            https://books-zqje.vercel.app/
+            https://books-mathieu-jullien.vercel.app/
           </span>
         </a>
       </div>

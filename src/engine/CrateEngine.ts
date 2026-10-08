@@ -33,6 +33,7 @@ import { buildCrate, forgetCrateLabel, setCrateLabel, uprightLabel, type CrateRi
 import { buildRotateGizmo, type RotateGizmo } from './rotateGizmo';
 import { buildGrid, buildWorldAxes, type WorldAxes } from './worldAxes';
 import { disposeGroup } from './materials';
+import { loadMesange } from './decor';
 import { buildMoveGizmo, type MoveGizmo } from './moveGizmo';
 import {
   AXES,
@@ -276,6 +277,13 @@ export class CrateEngine {
     this.refresh();
     this.recenter();
     this.tick();
+    void loadMesange().then((bird) => {
+      if (!bird) return;
+      if (this.disposed) return disposeGroup(bird);
+      this.mesange = bird;
+      this.scene.add(bird);
+      this.placeDecor();
+    });
     void this.hydrate();
   }
 
@@ -310,6 +318,7 @@ export class CrateEngine {
     for (const l of this.listeners) l();
   }
 
+  private mesange: THREE.Group | null = null;
   private syncTimer = 0;
   /** Numéro du dernier chargement : une apparition progressive s'arrête si un autre chargement démarre. */
   private loadId = 0;
@@ -419,8 +428,25 @@ export class CrateEngine {
     this.updateNeighbors();
     this.placeCrates();
     this.layoutBooks();
+    this.placeDecor();
     this.save();
     this.emit();
+  }
+
+  /** La mésange se pose sur le dessus de la caisse la plus haute (à gauche en cas d'égalité) et la suit si on la déplace. */
+  private placeDecor(): void {
+    if (!this.mesange) return;
+    let best: Crate | null = null;
+    let bestTop = -Infinity;
+    for (const c of this.crates) {
+      const top = c.y + extents(c, 0).fy;
+      if (top > bestTop + 1e-6 || (Math.abs(top - bestTop) <= 1e-6 && best && c.x < best.x)) {
+        best = c;
+        bestTop = top;
+      }
+    }
+    this.mesange.visible = !!best;
+    if (best) this.mesange.position.set(best.x, bestTop, best.z);
   }
 
   // ---------- historique ----------
@@ -809,6 +835,10 @@ export class CrateEngine {
 
   dispose(): void {
     this.disposed = true;
+    if (this.mesange) {
+      this.scene.remove(this.mesange);
+      disposeGroup(this.mesange);
+    }
     cancelAnimationFrame(this.raf);
     window.clearTimeout(this.texTimer);
     this.resizeObserver.disconnect();

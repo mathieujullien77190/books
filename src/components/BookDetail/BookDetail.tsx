@@ -105,7 +105,7 @@ export const BookDetail = ({
         </div>
         <div className="col-span-3">
           <label htmlFor="detailIsbn" className={LABEL}>
-            ISBN :
+            {/^d{4}-d{3}[dX]$/i.test(book?.isbn ?? '') ? 'ISSN :' : 'ISBN :'}
           </label>
           <div className="flex gap-1.5">
             <input

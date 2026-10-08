@@ -130,6 +130,15 @@ export const AiTab = ({
           ))}
         </Select>
       </div>
+      {!hasKey && (
+        <p className="m-0 mb-2 rounded-lg bg-ink/5 px-2.5 py-2 text-xs leading-relaxed text-ink">
+          Cette fonction utilise l’API d’Anthropic, qui est <strong>payante</strong> : chaque
+          question consomme du crédit. Pour la tester, colle ta propre clé (bouton 🔑) : elle reste
+          dans ton navigateur et ne sert qu’à tes questions. Par prudence, crée une clé dédiée sur
+          console.anthropic.com avec une limite de dépense basse, et supprime-la juste après
+          l’essai.
+        </p>
+      )}
       {/* zone toujours présente (vide au départ) pour que les lecteurs d'écran lisent les messages qui arrivent */}
       <div
         role="log"

@@ -101,6 +101,21 @@ export const BookDetail = ({
             }
           />
         </div>
+        <div>
+          <label htmlFor="detailIsbn" className={LABEL}>
+            ISBN
+          </label>
+          <input
+            id="detailIsbn"
+            readOnly={readOnly}
+            type="text"
+            inputMode="numeric"
+            className={FIELD}
+            autoComplete="off"
+            value={book?.isbn ?? ''}
+            onChange={(e) => onChange({ isbn: e.target.value })}
+          />
+        </div>
       </div>
       <label htmlFor="detailKind" className={LABEL}>
         Type

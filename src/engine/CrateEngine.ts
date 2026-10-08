@@ -67,7 +67,10 @@ type DragBook = {
 };
 /** Champs modifiables d'un livre depuis la fiche. */
 export type BookPatch = Partial<
-  Pick<Book, 'title' | 'summary' | 'color' | 'cover' | 'author' | 'publisher' | 'year' | 'kind'>
+  Pick<
+    Book,
+    'title' | 'summary' | 'color' | 'cover' | 'author' | 'publisher' | 'year' | 'kind' | 'isbn'
+  >
 >;
 
 type Bounds = {
@@ -660,7 +663,13 @@ export class CrateEngine {
     if ('year' in patch)
       b.year = patch.year && Number.isFinite(patch.year) ? patch.year : undefined;
     if ('kind' in patch) b.kind = patch.kind;
-    const meta = 'author' in patch || 'publisher' in patch || 'year' in patch || 'kind' in patch;
+    if ('isbn' in patch) b.isbn = patch.isbn?.trim() || undefined;
+    const meta =
+      'author' in patch ||
+      'publisher' in patch ||
+      'year' in patch ||
+      'kind' in patch ||
+      'isbn' in patch;
     if (
       patch.title !== undefined ||
       patch.color !== undefined ||

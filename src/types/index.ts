@@ -44,6 +44,8 @@ export type Book = {
   publisher?: string;
   year?: number;
   kind?: BookKind;
+  /** ISBN tel qu'imprimé au dos (avec ou sans tirets). */
+  isbn?: string;
   /** Couleur du titre sur la tranche (sinon noir ou blanc selon le fond). */
   spineColor?: string;
 };

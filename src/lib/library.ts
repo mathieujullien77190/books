@@ -29,6 +29,7 @@ const brief = (b: Book, lib: Library, details = false) => ({
   ...(b.author ? { author: b.author } : {}),
   ...(details && b.publisher ? { publisher: b.publisher } : {}),
   ...(details && b.year ? { year: b.year } : {}),
+  ...(details && b.isbn ? { isbn: b.isbn } : {}),
   ...(details && b.kind ? { kind: b.kind } : {}),
   // couleur dominante de la couverture (hex) : permet de distinguer « le jaune » parmi des titres proches
   color: b.color,

@@ -119,7 +119,7 @@ export const BookDetail = ({
         ))}
       </select>
       <label htmlFor="detailSummary" className={LABEL}>
-        Résumé (imprimé au dos du livre)
+        Résumé
       </label>
       <textarea
         id="detailSummary"

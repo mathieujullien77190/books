@@ -4,8 +4,6 @@ import type { CrateSize } from '@/types';
 /** Toutes les tailles proposées : les caisses en bois, puis la transparente. */
 export const ALL_SIZE_KEYS: CrateSize[] = [...SIZE_KEYS, 'X'];
 
-export const EMPTY_TEXT = 'Aucune caisse sélectionnée. Clique sur une caisse.';
-
 /** Champs de cotes d'une caisse transparente, dans l'ordre d'affichage. */
 export const DIM_FIELDS: { key: 'w' | 'h' | 'd'; label: string }[] = [
   { key: 'w', label: 'Larg.' },

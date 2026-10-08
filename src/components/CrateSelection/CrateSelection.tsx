@@ -3,7 +3,7 @@ import { SIZES } from '@/constants';
 import { crateDims } from '@/helpers';
 
 import { DimField } from './DimField';
-import { ALL_SIZE_KEYS, DIM_FIELDS, EMPTY_TEXT, ROTATE_HINT } from './constants';
+import { ALL_SIZE_KEYS, DIM_FIELDS, ROTATE_HINT } from './constants';
 import { storageLabel } from './helpers';
 import type { CrateSelectionProps } from './types';
 
@@ -19,7 +19,7 @@ export const CrateSelection = ({
   onOverhang,
   onDelete,
 }: CrateSelectionProps) => {
-  if (!crate) return <div className={`${BOX} text-xs text-muted`}>{EMPTY_TEXT}</div>;
+  if (!crate) return null;
   const dims = crateDims(crate);
   return (
     <div className={BOX}>

@@ -1,0 +1,18 @@
+@import 'tailwindcss';
+
+/* Jetons de design exposés comme utilitaires : bg-bg, text-ink, text-muted, bg-accent… */
+@theme {
+  --color-bg: #dfe9f3;
+  --color-ink: #1f2a37;
+  --color-muted: #5b6b7c;
+  --color-accent: #b5651d;
+}
+
+@layer base {
+  html,
+  body {
+    @apply h-full overflow-hidden bg-bg text-ink antialiased;
+    font-size: 14px;
+    line-height: 1.4;
+  }
+}

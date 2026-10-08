@@ -24,13 +24,13 @@ const applySpineTurn = (rig: BookRig): void => {
   const map = rig.mesh.material[4]?.map;
   if (!map) return;
   map.center.set(0.5, 0.5);
-  // tranche écrite à l'horizontale : le demi-tour ne s'applique qu'au titre vertical
-  map.rotation = rig.flat && !map.userData.horizontal ? Math.PI : 0;
+  // tranche écrite à l'horizontale : à plat (couverture dessus) c'est le titre horizontal qui se retourne
+  map.rotation = rig.flat && map.userData.horizontal ? Math.PI : 0;
 };
 
 /**
- * Couché, le livre est tourné d'un demi-tour par rapport à debout : sans correction le titre de la
- * tranche se lit de droite à gauche, la tête en bas.
+ * Couché (couverture dessus), l'épaisseur et la hauteur du livre ne pointent plus comme debout : le
+ * titre horizontal de la tranche doit être retourné pour se lire à l'endroit.
  */
 export const setSpineFlat = (rig: BookRig, flat: boolean): void => {
   if (rig.flat === flat) return;

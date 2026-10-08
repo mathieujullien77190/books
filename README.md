@@ -7,12 +7,12 @@ MongoDB ; un assistant Claude peut répondre aux questions sur la collection et 
 ## Ce que fait l'appli
 
 - **Scène 3D** : caisses petites, moyennes, grandes ou transparentes, empilables (gravité et aimantation), livres
-  debout ou à plat, couvertures et tranches dessinées. Un Rubik's cube décoratif se déplace librement.
+  debout ou à plat, couvertures et tranches dessinées.
 - **Lecture** (mode par défaut) : cliquer un livre le sort devant toi, le retourne pour lire le résumé, et montre
   les voisins (précédent / suivant) à côté. La fiche (titre, auteur, éditeur, année, type, résumé, série) est à droite.
 - **Recherche** en grand en haut : sans accents, avec une faute de frappe tolérée ; Entrée présente tous les
   résultats devant toi, du premier au dernier.
-- **Édition** : déplacer et tourner les caisses, déplacer le cube. Protégée par un code vérifié côté serveur.
+- **Édition** : déplacer et tourner les caisses. Protégée par un code vérifié côté serveur.
 - **Calepin** : onglet _Notes_ (enregistrées en base) et onglet _IA_ pour interroger Claude sur ta bibliothèque,
   avec ta propre clé API.
 - **Téléphone** : un seul livre à la fois, au maximum de l'écran, parcouru avec ‹ ›, boutons Biblio et Calepin.
@@ -50,8 +50,8 @@ npm run format       # prettier
 
 ## Données
 
-Quatre collections dans MongoDB : `crates` (caisses : taille, position, orientation), `books` (livres : titre,
-auteur, couverture, dimensions, caisse, ordre), `props` (objets libres, le cube), `notes` (calepin), plus `meta`
+Trois collections dans MongoDB : `crates` (caisses : taille, position, orientation), `books` (livres : titre,
+auteur, couverture, dimensions, caisse, ordre), `notes` (calepin), plus `meta`
 (révision de l'état). Les couvertures sont des fichiers dans `public/covers/`.
 
 L'appli envoie l'état complet à la base à chaque modification. Une révision (`meta.rev`) empêche une page
@@ -72,7 +72,7 @@ du crédit sur le compte de la clé utilisée.
 
 ```
 src/app/            page unique et routes API (state, sync, edit, notes, ai)
-src/engine/         moteur three.js : CrateEngine, livres, caisses, cube, gizmos
+src/engine/         moteur three.js : CrateEngine, livres, caisses, gizmos
 src/components/     interface React (CratesApp, SidePanel, BookDetail, SearchBar, Notepad…)
 src/lib/            code serveur partagé : MongoDB, code d'Édition, outils de Claude
 public/covers/      couvertures des livres

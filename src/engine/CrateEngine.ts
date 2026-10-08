@@ -15,6 +15,7 @@ import { disposeGroup } from './materials';
 import { loadMesange } from './mesange';
 import { RenderLoop } from './loop';
 import { MissingPile } from './missingPile';
+import { LoadState } from './loadState';
 import { Persistence } from './persistence';
 import { Stage } from './stage';
 import { Store } from './store';
@@ -48,9 +49,7 @@ export class CrateEngine {
   private stats = { stored: 0, loose: 0, full: 0 };
 
   private readonly decor = new Decor();
-  /** Vrai jusqu'à la fin du premier chargement : l'interface affiche un indicateur. */
-  private loading = true;
-  private loadError = false;
+  private readonly load: LoadState;
   private readonly display: DisplayMode;
   private readonly persistence = new Persistence({
     isDisposed: () => this.disposed,
@@ -61,14 +60,14 @@ export class CrateEngine {
       this.decor.state = decor;
     },
     failed: () => {
-      this.loadError = true;
+      this.load.failed = true;
     },
     loaded: (first) => {
-      this.loadError = false;
+      this.load.failed = false;
       if (first) this.recenter();
       this.syncGhosts();
     },
-    endLoading: () => this.endLoading(),
+    endLoading: () => this.load.end(),
   });
 
   /** Souris, doigts et clavier (gestes en cours, survol, infobulle). */
@@ -76,8 +75,6 @@ export class CrateEngine {
   /** États précédents pour « Annuler » (le plus récent en dernier). */
   private readonly history = new History();
   private mode: Mode = 'view';
-  /** Premier rendu déjà fait derrière l'indicateur de chargement. */
-  private warmed = false;
   private disposed = false;
 
   /** État lu par React : abonnement et instantané. */
@@ -165,11 +162,17 @@ export class CrateEngine {
       emit: () => this.emit(),
     });
 
+    this.load = new LoadState({
+      stage,
+      isDisposed: () => this.disposed,
+      emit: () => this.emit(),
+      shown: () => this.display.upgrade(),
+    });
     this.store = new Store(() => ({
       crates: this.crates,
       books: this.books,
-      loading: this.loading,
-      loadError: this.loadError,
+      loading: this.load.pending,
+      loadError: this.load.failed,
       lite: this.display.choice,
       selectedId: this.selectedId,
       openId: this.opened.id,
@@ -267,26 +270,6 @@ export class CrateEngine {
    */
   setLite(on: boolean): void {
     this.display.set(on);
-  }
-
-  /** Chargement terminé (ou impossible) : l'interface retire l'indicateur. */
-  private endLoading(): void {
-    if (this.warmed) {
-      this.loading = false;
-      this.emit();
-      return;
-    }
-    // premier chargement : compilation des shaders et envoi des textures au GPU pendant que
-    // l'indicateur est encore affiché, sinon la scène reste vide plusieurs secondes une fois retiré
-    this.warmed = true;
-    this.stage.warmUp(
-      () => this.disposed,
-      () => {
-        this.loading = false;
-        this.emit();
-        this.display.upgrade();
-      },
-    );
   }
 
   /** Recharge l'état depuis la base (modifiée ailleurs : Claude, un script…). */

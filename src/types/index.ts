@@ -44,6 +44,8 @@ export type Book = {
   publisher?: string;
   year?: number;
   kind?: BookKind;
+  /** Couleur du titre sur la tranche (sinon noir ou blanc selon le fond). */
+  spineColor?: string;
 };
 
 /** Édition : on déplace et règle les caisses, on range les livres. Lecture : on ouvre et on lit,

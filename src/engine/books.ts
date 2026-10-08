@@ -62,6 +62,7 @@ export const spineTexture = (
   aniso: number,
   t: number,
   h: number,
+  textColor?: string,
 ): THREE.CanvasTexture => {
   const H = 1024;
   const W = Math.max(8, Math.min(512, Math.round((H * t) / h)));
@@ -75,7 +76,7 @@ export const spineTexture = (
   g.fillStyle = light ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.28)';
   g.fillRect(0, 56, W, 16);
   g.fillRect(0, H - 72, W, 16);
-  g.fillStyle = light ? 'rgba(20,20,30,0.85)' : 'rgba(255,250,240,0.92)';
+  g.fillStyle = textColor ?? (light ? 'rgba(20,20,30,0.85)' : 'rgba(255,250,240,0.92)');
   g.textAlign = 'center';
   g.textBaseline = 'middle';
 
@@ -316,7 +317,7 @@ export const makeBookRig = (b: Book, aniso: number): BookRig => {
   });
   const edgeColor = bookMat({ color: edge });
   const pages = bookMat({ color: 0xf3ead6, roughness: 1, envMapIntensity: 0.3 });
-  const spine = bookMat({ map: spineTexture(b.title, b.color, aniso, b.t, b.h) });
+  const spine = bookMat({ map: spineTexture(b.title, b.color, aniso, b.t, b.h, b.spineColor) });
   const mesh: BookMesh = new THREE.Mesh(new THREE.BoxGeometry(b.t, b.h, b.d), [
     front,
     back,
@@ -349,7 +350,7 @@ export const updateBookTextures = (rig: BookRig, b: Book, aniso: number): void =
   back!.map = backCoverTexture(b.title, b.color, aniso, b.summary, b.author, b.publisher, b.year);
   back!.needsUpdate = true;
   spine!.map?.dispose();
-  spine!.map = spineTexture(b.title, b.color, aniso, b.t, b.h);
+  spine!.map = spineTexture(b.title, b.color, aniso, b.t, b.h, b.spineColor);
   spine!.needsUpdate = true;
   applySpineTurn(rig);
   edgeColor!.color.set(b.color).multiplyScalar(0.92);

@@ -7,6 +7,8 @@ export type SidePanelProps = {
   onUnlockEdit?: (code: string) => Promise<boolean>;
   /** Reverrouille l'Édition (oublie le jeton de cet appareil). */
   onLockEdit?: () => void;
+  /** Bibliothèque affichée dans AOC (`?embed=1`) : ni bouton Édition ni code. */
+  hideEdit?: boolean;
   /** Ouvert dès l'affichage (feuille du téléphone) ; replié par défaut. */
   defaultOpen?: boolean;
   snapshot: Snapshot;

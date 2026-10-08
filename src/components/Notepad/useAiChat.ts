@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { EDIT_TOKEN_KEY, readStorage } from '@/components/shared';
+import { EDIT_TOKEN_KEY, readStorage, useIsEmbed } from '@/components/shared';
 
 import { AI_ERRORS } from './constants';
 import type { AiTurn } from './types';
@@ -18,6 +18,7 @@ let savedTurns: AiTurn[] = [];
 
 /** Conversation avec Claude : tours, question en cours, attente et erreur. */
 export const useAiChat = ({ apiKey, model, onChanged }: Options) => {
+  const embed = useIsEmbed(); // dans AOC : Claude reste en lecture seule, le jeton n'est pas envoyé
   const [question, setQuestion] = useState('');
   const [turns, setTurns] = useState<AiTurn[]>(() => savedTurns);
   useEffect(() => {
@@ -42,7 +43,7 @@ export const useAiChat = ({ apiKey, model, onChanged }: Options) => {
           key: apiKey.trim(),
           messages: next.map(({ role, content }) => ({ role, content })),
           // jeton d'Édition : prouve que le code a été saisi (les modifications de Claude en ont besoin)
-          token: readStorage(EDIT_TOKEN_KEY),
+          token: embed ? null : readStorage(EDIT_TOKEN_KEY),
           model,
         }),
       });

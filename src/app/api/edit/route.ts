@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { clearFails, clientKey, isBlocked, recordFail } from '@/lib/attempts';
 import { EDIT_CODE, isEditToken, sameSecret, signEditToken } from '@/lib/edit';
 
 /**
@@ -14,7 +15,15 @@ export const POST = async (request: Request): Promise<NextResponse> => {
     return NextResponse.json({ ok: false }, { status: 400 });
   }
   if (typeof body.code === 'string') {
-    if (!sameSecret(body.code, EDIT_CODE)) return NextResponse.json({ ok: false }, { status: 401 });
+    const key = clientKey(request);
+    // trop d'essais ratés : plus aucun essai (même le bon code) pendant quelques minutes
+    if (await isBlocked(key))
+      return NextResponse.json({ ok: false, reason: 'too-many' }, { status: 429 });
+    if (!sameSecret(body.code, EDIT_CODE)) {
+      await recordFail(key);
+      return NextResponse.json({ ok: false }, { status: 401 });
+    }
+    await clearFails(key);
     return NextResponse.json({ ok: true, token: signEditToken() });
   }
   if (isEditToken(body.token)) return NextResponse.json({ ok: true });

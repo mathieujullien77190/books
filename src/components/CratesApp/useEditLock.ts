@@ -4,7 +4,7 @@ import type { CrateEngine } from '@/engine/CrateEngine';
 import type { Mode } from '@/types';
 
 import { DENIED_MESSAGES, DENIED_TOAST_MS } from './constants';
-import { EDIT_TOKEN_KEY, writeStorage } from '@/components/shared';
+import { EDIT_TOKEN_KEY, useIsEmbed, writeStorage } from '@/components/shared';
 
 import { checkEditToken, unlockEdit } from './helpers';
 import type { EditLock } from './types';
@@ -17,14 +17,16 @@ export const useEditLock = (
   engine: CrateEngine | null,
   mode: Mode,
 ): { lock: EditLock; toast: string } => {
+  const embed = useIsEmbed(); // dans le bureau d'AOC : jamais d'Édition
   const [unlocked, setUnlocked] = useState(false);
   useEffect(() => {
+    if (embed) return;
     let cancelled = false;
     void checkEditToken().then((ok) => !cancelled && setUnlocked(ok));
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [embed]);
   // sans le code, pas d'Édition : on revient en Lecture si on y arrive
   useEffect(() => {
     if (!unlocked && engine && mode === 'edit') engine.setMode('view');
@@ -44,11 +46,15 @@ export const useEditLock = (
     engine?.setEditDeniedHandler(locked ? denied : null);
   }, [engine, locked, denied]);
 
-  const unlock = useCallback(async (code: string): Promise<boolean> => {
-    const ok = await unlockEdit(code);
-    if (ok) setUnlocked(true);
-    return ok;
-  }, []);
+  const unlock = useCallback(
+    async (code: string): Promise<boolean> => {
+      if (embed) return false;
+      const ok = await unlockEdit(code);
+      if (ok) setUnlocked(true);
+      return ok;
+    },
+    [embed],
+  );
 
   /** Reverrouille l'Édition sur cet appareil : le jeton est oublié, il faudra ressaisir le code. */
   const relock = useCallback((): void => {

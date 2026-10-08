@@ -23,6 +23,7 @@ export const SidePanel = ({
   editLocked = false,
   onUnlockEdit,
   onLockEdit,
+  hideEdit = false,
   snapshot,
   onAddCrate,
   onCrateSize,
@@ -63,7 +64,7 @@ export const SidePanel = ({
       {open && (
         <div className="max-h-[calc(100dvh-340px)] [scrollbar-width:thin] overflow-y-auto border-t border-ink/10 px-4 pt-1 pb-3">
           <div className="mt-2 flex flex-wrap items-start gap-1.5">
-            {MODES.map((m) => (
+            {MODES.filter((m) => !hideEdit || m.mode !== 'edit').map((m) => (
               <Button
                 key={m.mode}
                 variant={snapshot.mode === m.mode ? 'active' : 'default'}
@@ -77,39 +78,41 @@ export const SidePanel = ({
                 {m.label}
               </Button>
             ))}
-            <form
-              className="flex min-w-0 flex-1 items-center gap-1.5"
-              onSubmit={async (e) => {
-                e.preventDefault();
-                if (!editLocked) return onLockEdit?.();
-                const ok = await onUnlockEdit?.(code);
-                setWrongCode(!ok);
-                setCode('');
-              }}
-            >
-              <TextInput
-                id="editCode"
-                name="editCode"
-                type="password"
-                placeholder={editLocked ? '🔑 Code' : '🔓 Édition déverrouillée'}
-                aria-label="Code d'Édition"
-                className="h-9 min-w-0 flex-1 py-0"
-                autoComplete="off"
-                disabled={!editLocked}
-                value={code}
-                onChange={(e) => {
-                  setCode(e.target.value);
-                  setWrongCode(false);
+            {!hideEdit && (
+              <form
+                className="flex min-w-0 flex-1 items-center gap-1.5"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!editLocked) return onLockEdit?.();
+                  const ok = await onUnlockEdit?.(code);
+                  setWrongCode(!ok);
+                  setCode('');
                 }}
-              />
-              <Button
-                type="submit"
-                className="h-9"
-                title={editLocked ? 'Déverrouiller l’Édition' : 'Reverrouiller l’Édition'}
               >
-                {editLocked ? 'OK' : '🔒'}
-              </Button>
-            </form>
+                <TextInput
+                  id="editCode"
+                  name="editCode"
+                  type="password"
+                  placeholder={editLocked ? '🔑 Code' : '🔓 Édition déverrouillée'}
+                  aria-label="Code d'Édition"
+                  className="h-9 min-w-0 flex-1 py-0"
+                  autoComplete="off"
+                  disabled={!editLocked}
+                  value={code}
+                  onChange={(e) => {
+                    setCode(e.target.value);
+                    setWrongCode(false);
+                  }}
+                />
+                <Button
+                  type="submit"
+                  className="h-9"
+                  title={editLocked ? 'Déverrouiller l’Édition' : 'Reverrouiller l’Édition'}
+                >
+                  {editLocked ? 'OK' : '🔒'}
+                </Button>
+              </form>
+            )}
           </div>
           {editLocked && wrongCode && (
             <p role="alert" className="m-0 mt-1 text-xs text-[#c0392b]">

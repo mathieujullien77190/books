@@ -45,7 +45,10 @@ export const SidePanel = ({
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
       >
-        <span className="text-base font-semibold tracking-[0.2px]">📚 {APP_NAME}</span>
+        <span className="flex items-center gap-2 text-base leading-none font-semibold tracking-[0.2px]">
+          <span className="w-5 text-center">📚</span>
+          <span>{APP_NAME}</span>
+        </span>
         <span className="text-xs text-muted">
           {statusText(snapshot.stored, snapshot.loose, snapshot.full)} {open ? '▴' : '▾'}
         </span>

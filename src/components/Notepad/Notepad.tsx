@@ -16,11 +16,12 @@ export const Notepad = ({ className = '', defaultOpen = false, onChanged }: Note
       <div className="flex items-center justify-between gap-2 px-3.5 py-2">
         <button
           type="button"
-          className="cursor-pointer border-0 bg-transparent p-0 text-left font-semibold"
+          className="flex cursor-pointer items-center gap-2 border-0 bg-transparent p-0 text-left text-base leading-none font-semibold tracking-[0.2px]"
           aria-expanded={open}
           onClick={() => setOpen((o) => !o)}
         >
-          ✨ Claude
+          <span className="w-5 text-center">✨</span>
+          <span>Claude</span>
         </button>
         <button
           type="button"

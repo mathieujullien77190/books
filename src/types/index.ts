@@ -56,6 +56,9 @@ export type RotAxis = 'x' | 'y' | 'z';
 
 export type CratePreset = 'tranche' | 'debout';
 
+/** Décalage de la mésange par rapport à son perchoir (unités scène), réglé avec les flèches en Édition. */
+export type DecorState = { mesange: { dx: number; dy: number; dz: number } };
+
 export type SavedState = {
   crates: Crate[];
   books: Book[];

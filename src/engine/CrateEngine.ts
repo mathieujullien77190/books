@@ -9,6 +9,7 @@ import type {
   Crate,
   CratePreset,
   CrateSize,
+  DecorState,
   Dims,
   Id,
   Mode,
@@ -97,6 +98,9 @@ const MESANGE_PERCH = 'P5';
 const MESANGE_MARGIN = 0.2;
 /** Elle s'enfonce un peu dans le dessus de la caisse pour que ses pattes touchent le bois. */
 const MESANGE_SINK = 0.24;
+/** Taille du volume autour duquel s'affichent les flèches, et pas d'un clic de flèche. */
+const MESANGE_REACH = { x: 0.8, y: 1.2, z: 0.8 };
+const MESANGE_STEP = 0.1;
 
 /** Apparition des livres au chargement : nombre de livres par vague et délai entre deux vagues. */
 const REVEAL_BATCH = 12;
@@ -267,7 +271,8 @@ export class CrateEngine {
     this.scene.add(this.grid, this.axes.group);
     this.rotGizmo = buildRotateGizmo();
     this.moveGizmo = buildMoveGizmo();
-    this.scene.add(this.rotGizmo.group, this.moveGizmo.group);
+    this.decorGizmo = buildMoveGizmo();
+    this.scene.add(this.rotGizmo.group, this.moveGizmo.group, this.decorGizmo.group);
     this.raycaster.layers.enableAll();
 
     this.snapshot = this.makeSnapshot();
@@ -326,6 +331,11 @@ export class CrateEngine {
   }
 
   private mesange: Mesange | null = null;
+  /** Décalage de la mésange par rapport à son perchoir (sauvé en base avec le reste). */
+  private decor: DecorState = { mesange: { dx: 0, dy: 0, dz: 0 } };
+  /** La mésange est sélectionnée en Édition : ses flèches sont affichées. */
+  private decorSelected = false;
+  private readonly decorGizmo: MoveGizmo;
   private syncTimer = 0;
   /** Numéro du dernier chargement : une apparition progressive s'arrête si un autre chargement démarre. */
   private loadId = 0;
@@ -345,6 +355,7 @@ export class CrateEngine {
         rev?: number;
         crates?: Crate[];
         books?: Book[];
+        decor?: Partial<DecorState>;
       };
       if (this.disposed || !data.ok) return;
       this.hydrated = false; // pas de renvoi de l'état qu'on est en train de charger
@@ -356,6 +367,8 @@ export class CrateEngine {
           : (legacy ?? { crates: defaultCrates(), books: [], messy: false }),
       );
       this.history.length = 0;
+      const dm = data.decor?.mesange;
+      this.decor = { mesange: { dx: dm?.dx ?? 0, dy: dm?.dy ?? 0, dz: dm?.dz ?? 0 } };
       this.rev = data.rev ?? 0;
       if (stagger) {
         // au chargement : les caisses d'abord, puis les livres qui arrivent par vagues (hydrated reste faux
@@ -396,7 +409,7 @@ export class CrateEngine {
   private lastSent = '';
 
   private payload(): string {
-    return JSON.stringify({ crates: this.crates, books: this.books });
+    return JSON.stringify({ crates: this.crates, books: this.books, decor: this.decor });
   }
 
   /** Recharge l'état depuis la base (modifiée ailleurs : Claude, un script…). */
@@ -446,14 +459,23 @@ export class CrateEngine {
     const labels = crateLabels(this.crates);
     const perch = this.crates.find((c) => labels.get(c.id) === MESANGE_PERCH);
     this.mesange.group.visible = !!perch;
+    this.decorGizmo.group.visible = false;
     if (!perch) return;
     // coin avant droit du dessus (le plus proche de l'observateur : la vue est de face, vers +Z)
     const { fx, fy, fz } = extents(perch, 0);
     this.mesange.group.position.set(
-      perch.x + fx / 2 - MESANGE_MARGIN,
-      perch.y + fy - MESANGE_SINK,
-      perch.z + fz / 2 - MESANGE_MARGIN,
+      perch.x + fx / 2 - MESANGE_MARGIN + this.decor.mesange.dx,
+      perch.y + fy - MESANGE_SINK + this.decor.mesange.dy,
+      perch.z + fz / 2 - MESANGE_MARGIN + this.decor.mesange.dz,
     );
+    // flèches de déplacement autour de la mésange sélectionnée (comme celles d'une caisse)
+    if (this.selectedId) this.decorSelected = false;
+    this.decorGizmo.group.visible = this.decorSelected && this.mode === 'edit' && !this.openId;
+    if (this.decorGizmo.group.visible) {
+      this.decorGizmo.group.position.copy(this.mesange.group.position).y += MESANGE_REACH.y / 2;
+      this.decorGizmo.fit(MESANGE_REACH.x, MESANGE_REACH.y, MESANGE_REACH.z);
+      this.decorGizmo.setVertical(true, true);
+    }
   }
 
   // ---------- historique ----------
@@ -810,7 +832,10 @@ export class CrateEngine {
   setMode(mode: Mode): void {
     if (this.mode === mode) return;
     this.mode = mode;
-    if (mode === 'view') this.selectedId = null;
+    if (mode === 'view') {
+      this.selectedId = null;
+      this.decorSelected = false;
+    }
     this.grid.visible = mode === 'edit';
     this.axes.group.visible = mode === 'edit';
     this.refresh();
@@ -863,7 +888,8 @@ export class CrateEngine {
     this.bookRigs.clear();
     disposeGroup(this.rotGizmo.group);
     disposeGroup(this.moveGizmo.group);
-    this.scene.remove(this.rotGizmo.group, this.moveGizmo.group);
+    disposeGroup(this.decorGizmo.group);
+    this.scene.remove(this.rotGizmo.group, this.moveGizmo.group, this.decorGizmo.group);
     this.controls.dispose();
     this.renderer.dispose();
   }
@@ -964,6 +990,16 @@ export class CrateEngine {
       );
       this.moveGizmo.setVertical(above, false);
     }
+  }
+
+  /** Déplace la mésange d'un cran le long d'un axe du monde. */
+  private stepMesange(axis: RotAxis, sign: 1 | -1): void {
+    const m = this.decor.mesange;
+    const key = axis === 'x' ? 'dx' : axis === 'y' ? 'dy' : 'dz';
+    m[key] = Math.round((m[key] + sign * MESANGE_STEP) * 100) / 100;
+    this.placeDecor();
+    this.save();
+    this.emit();
   }
 
   private bounds(): Bounds {
@@ -1134,6 +1170,26 @@ export class CrateEngine {
         return;
       }
     }
+    // mésange (Édition) : ses flèches déplacent d'un cran, un clic sur elle la sélectionne
+    if (this.mode === 'edit' && this.decorGizmo.group.visible) {
+      const hd = this.raycaster.intersectObjects(this.decorGizmo.activeHits(), false)[0];
+      if (hd) {
+        const { axis, sign } = hd.object.userData as { axis: RotAxis; sign: 1 | -1 };
+        this.stepMesange(axis, sign);
+        return;
+      }
+    }
+    if (
+      this.mode === 'edit' &&
+      !this.openId &&
+      this.mesange?.group.visible &&
+      this.raycaster.intersectObject(this.mesange.group, true).length
+    ) {
+      this.selectedId = null;
+      this.decorSelected = true;
+      this.refresh();
+      return;
+    }
     // livre d'abord
     const hb = this.raycaster.intersectObjects(this.visibleBookMeshes(), false)[0];
     if (hb) {
@@ -1254,6 +1310,7 @@ export class CrateEngine {
       if (Math.hypot(e.clientX - this.downEmpty[0], e.clientY - this.downEmpty[1]) < 5) {
         if (this.openId) this.closeBook(false);
         this.selectedId = null;
+        this.decorSelected = false;
         this.refresh();
         if (this.downCrate) this.focusCrate(this.downCrate); // clic sur une caisse : on zoome dessus
       }

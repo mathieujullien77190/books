@@ -17,7 +17,10 @@ export const GET = async (): Promise<NextResponse> => {
       db.collection<Crate>('crates').find({}, opts).toArray(),
       db.collection<Book>('books').find({}, opts).toArray(),
     ]);
-    return NextResponse.json({ ok: true, rev, crates, books });
+    const decor = await db
+      .collection('meta')
+      .findOne({ _id: 'decor' as never }, { projection: { _id: 0 } });
+    return NextResponse.json({ ok: true, rev, crates, books, decor });
   } catch (err) {
     console.error('load state failed', err);
     return NextResponse.json({ ok: false, reason: 'error' });

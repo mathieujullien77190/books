@@ -16,6 +16,7 @@ export const POST = async (request: Request): Promise<NextResponse> => {
       rev?: number;
       crates?: Crate[];
       books?: Book[];
+      decor?: { mesange?: { dx?: unknown; dy?: unknown; dz?: unknown } };
     };
     const db = await getDb();
     const rev = body.rev ?? 0;
@@ -31,6 +32,17 @@ export const POST = async (request: Request): Promise<NextResponse> => {
       await books.deleteMany({});
       if (body.books.length)
         await books.insertMany(body.books.map((b, order) => ({ ...b, order })));
+    }
+    const m = body.decor?.mesange;
+    if (m) {
+      const n = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+      await db
+        .collection('meta')
+        .updateOne(
+          { _id: 'decor' as never },
+          { $set: { mesange: { dx: n(m.dx), dy: n(m.dy), dz: n(m.dz) } } },
+          { upsert: true },
+        );
     }
     return NextResponse.json({ ok: true, rev: rev + 1 });
   } catch (err) {

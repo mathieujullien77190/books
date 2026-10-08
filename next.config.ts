@@ -15,6 +15,13 @@ const nextConfig: NextConfig = {
           { key: 'Content-Security-Policy', value: `frame-ancestors ${FRAME_ANCESTORS.join(' ')}` },
         ],
       },
+      // couvertures et modèle 3D : changent rarement ; sans cela Vercel les revalide une à une à chaque visite
+      ...['/covers/:path*', '/mesange/:path*'].map((source) => ({
+        source,
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' },
+        ],
+      })),
     ];
   },
 };

@@ -202,18 +202,13 @@ export const CratesApp = ({ className = '' }: CratesAppProps) => {
           />
         </div>
       )}
-      <Button
-        className="fixed right-4 bottom-4 z-10 h-11 w-11 rounded-full bg-white/90 p-0 text-xl shadow-[0_10px_30px_rgba(31,42,55,0.14)] backdrop-blur-md"
-        title="Recentrer la vue sur toutes les caisses"
-        aria-label="Recentrer la vue"
-        onClick={() => engine?.recenter()}
-      >
-        🎯
-      </Button>
-      <PanPad
-        className="fixed right-4 bottom-[72px] z-10"
-        onPan={(dx, dy) => engine?.pan(dx, dy)}
-      />
+      {!phone && (
+        <PanPad
+          className="fixed right-4 bottom-4 z-10"
+          onPan={(dx, dy) => engine?.pan(dx, dy)}
+          onRecenter={() => engine?.recenter()}
+        />
+      )}
       {toast && (
         <div
           role="status"

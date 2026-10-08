@@ -4,29 +4,55 @@ import { useEffect, useRef } from 'react';
 
 import type { PanPadProps } from './types';
 
-const REPEAT_MS = 50;
+const REPEAT_MS = 40;
 
-const ARROWS: { label: string; text: string; dx: number; dy: number; cell: string }[] = [
-  { label: 'Monter la vue', text: '▲', dx: 0, dy: 1, cell: 'col-start-2 row-start-1' },
+/** Chevron pointant vers le haut ; tourné pour les autres directions. */
+const Chevron = ({ turn }: { turn: number }) => (
+  <svg
+    viewBox="0 0 24 24"
+    className="h-5 w-5"
+    style={{ transform: `rotate(${turn}deg)` }}
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.6"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden
+  >
+    <path d="M6 15l6-6 6 6" />
+  </svg>
+);
+
+const ARROWS: { label: string; dx: number; dy: number; turn: number; place: string }[] = [
+  { label: 'Monter la vue', dx: 0, dy: 1, turn: 0, place: 'top-0.5 left-1/2 -translate-x-1/2' },
+  {
+    label: 'Descendre la vue',
+    dx: 0,
+    dy: -1,
+    turn: 180,
+    place: 'bottom-0.5 left-1/2 -translate-x-1/2',
+  },
   {
     label: 'Décaler la vue vers la gauche',
-    text: '◀',
     dx: -1,
     dy: 0,
-    cell: 'col-start-1 row-start-2',
+    turn: -90,
+    place: 'left-0.5 top-1/2 -translate-y-1/2',
   },
   {
     label: 'Décaler la vue vers la droite',
-    text: '▶',
     dx: 1,
     dy: 0,
-    cell: 'col-start-3 row-start-2',
+    turn: 90,
+    place: 'right-0.5 top-1/2 -translate-y-1/2',
   },
-  { label: 'Descendre la vue', text: '▼', dx: 0, dy: -1, cell: 'col-start-2 row-start-3' },
 ];
 
-/** Croix de flèches : déplace la vue (la bibliothèque) ; rester appuyé répète le mouvement. */
-export const PanPad = ({ onPan, className = '' }: PanPadProps) => {
+/**
+ * Pavé directionnel rond : quatre chevrons déplacent la vue (rester appuyé répète le mouvement),
+ * la cible au centre recentre sur toutes les caisses.
+ */
+export const PanPad = ({ onPan, onRecenter, className = '' }: PanPadProps) => {
   const timer = useRef<number | undefined>(undefined);
 
   const stop = (): void => window.clearInterval(timer.current);
@@ -40,7 +66,7 @@ export const PanPad = ({ onPan, className = '' }: PanPadProps) => {
 
   return (
     <div
-      className={`pointer-events-auto grid grid-cols-3 grid-rows-3 gap-0.5 rounded-2xl bg-white/90 p-1 shadow-[0_10px_30px_rgba(31,42,55,0.14)] backdrop-blur-md ${className}`}
+      className={`pointer-events-auto relative h-[120px] w-[120px] rounded-full border border-ink/10 bg-white/90 shadow-[0_10px_30px_rgba(31,42,55,0.18)] backdrop-blur-md ${className}`}
     >
       {ARROWS.map((a) => (
         <button
@@ -48,7 +74,7 @@ export const PanPad = ({ onPan, className = '' }: PanPadProps) => {
           type="button"
           aria-label={a.label}
           title={a.label}
-          className={`${a.cell} h-8 w-8 cursor-pointer touch-none rounded-lg border-0 bg-transparent p-0 text-xs text-ink hover:bg-ink/10 active:bg-ink/20`}
+          className={`absolute ${a.place} flex h-10 w-10 cursor-pointer touch-none items-center justify-center rounded-full border-0 bg-transparent p-0 text-ink transition-colors hover:bg-accent/15 active:scale-95 active:bg-accent/30`}
           onPointerDown={(e) => {
             e.currentTarget.setPointerCapture(e.pointerId);
             start(a.dx, a.dy);
@@ -56,9 +82,18 @@ export const PanPad = ({ onPan, className = '' }: PanPadProps) => {
           onPointerUp={stop}
           onPointerCancel={stop}
         >
-          {a.text}
+          <Chevron turn={a.turn} />
         </button>
       ))}
+      <button
+        type="button"
+        aria-label="Recentrer la vue"
+        title="Recentrer la vue sur toutes les caisses"
+        className="absolute top-1/2 left-1/2 flex h-9 w-9 -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-ink/10 bg-white p-0 text-base shadow-sm hover:border-accent active:scale-95"
+        onClick={onRecenter}
+      >
+        🎯
+      </button>
     </div>
   );
 };

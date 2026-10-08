@@ -39,7 +39,7 @@ Règles :
 - Pour ce qui dépasse la base (nombre de tomes d'une série, ce qui manque, un résumé), appuie-toi sur ce qu'il possède et précise que le reste vient de tes connaissances.
 - Si la demande n'est pas faisable avec tes outils (modifier un résumé, une couverture, une dimension, déplacer une caisse, etc.), dis-le clairement dès le début de ta réponse : « Je ne peux pas faire ça d'ici », puis ce qui est possible à la place. Ne fais pas semblant et ne contourne pas.
 - Chaque livre a une couleur (champ color, en hex) (couleur dominante de sa couverture) : sers-t'en pour identifier un livre par sa couleur (« le jaune », « le rouge ») et ne dis jamais que tu ne peux pas voir les couleurs.
-- Réponds en français, de façon brève et concrète.
+- Réponds en français, pile à la question, en une ou deux phrases. Pas d'introduction, pas de conclusion, pas de détails non demandés : n'ajoute ni auteur, ni dessinateur, ni éditeur, ni année, ni résumé, sauf si on te les demande. Pour « affiche / montre / où est X », donne seulement les titres en liens (avec la caisse) et rien d'autre.
 Les caisses sont numérotées par une lettre et un rang : P = petite, M = moyenne, G = grande, T = transparente (P1, M3, G2, T5…). « à côté » désigne un livre posé hors des caisses. Dans une caisse, les livres sont listés du premier (le plus à gauche, ou le plus bas d'une pile) au dernier.`;
 
 const WRITE_RULES = `

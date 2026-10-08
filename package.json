@@ -10,7 +10,9 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "check": "npm run typecheck && npm run lint && npm run test"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.132.1",
@@ -33,6 +35,7 @@
     "prettier": "^3.9.0",
     "prettier-plugin-tailwindcss": "^0.8.1",
     "tailwindcss": "^4.3.3",
-    "typescript": "^5.9.0"
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.7"
   }
 }

@@ -72,17 +72,7 @@ export const CratesApp = ({ className = '' }: CratesAppProps) => {
       ) : (
         <DesktopLayout {...layout} />
       )}
-      {!bg && !phone && (
-        <IconButton
-          className={`fixed right-4 bottom-4 z-10 h-11 w-11 bg-white/90 text-xl backdrop-blur-md ${FLOAT_SHADOW}`}
-          label="Recentrer la vue"
-          title="Recentrer la vue sur toutes les caisses"
-          onClick={() => engine?.recenter()}
-        >
-          🎯
-        </IconButton>
-      )}
-      {!bg && phone && (
+      {!bg && (
         <IconButton
           className={`fixed right-4 bottom-4 z-10 h-11 w-11 bg-white/90 text-xl backdrop-blur-md ${FLOAT_SHADOW} ${snap.lite ? 'border-ink' : ''}`}
           label="Turbo : livres en pavés de couleur, plus fluide"

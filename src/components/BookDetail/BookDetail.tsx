@@ -9,12 +9,16 @@ export const BookDetail = ({
   book,
   crateLabel,
   allBooks,
-  onChange,
+  readOnly = false,
+  onDenied,
+  onChange: applyChange,
   onOpen,
   onHint,
   onClose,
 }: BookDetailProps) => {
   const series = book ? seriesOf(book, allBooks) : null;
+  const onChange: BookDetailProps['onChange'] = (patch) =>
+    readOnly ? onDenied?.() : applyChange(patch);
 
   return (
     <aside
@@ -22,6 +26,13 @@ export const BookDetail = ({
         book ? '' : 'pointer-events-none translate-x-5 opacity-0'
       }`}
       aria-hidden={!book}
+      onFocusCapture={(e) => readOnly && e.target.matches('input,textarea') && onDenied?.()}
+      onClickCapture={(e) => {
+        if (readOnly && (e.target as HTMLElement).closest('select,input[type=file],[data-edit]')) {
+          e.preventDefault();
+          onDenied?.();
+        }
+      }}
     >
       <Button
         variant="ghost"
@@ -36,6 +47,7 @@ export const BookDetail = ({
       </label>
       <input
         id="detailTitle"
+        readOnly={readOnly}
         type="text"
         className={`${FIELD} text-[17px] font-semibold`}
         maxLength={BOOK_TITLE_MAX}
@@ -50,6 +62,7 @@ export const BookDetail = ({
           </label>
           <input
             id="detailAuthor"
+            readOnly={readOnly}
             type="text"
             className={FIELD}
             autoComplete="off"
@@ -63,6 +76,7 @@ export const BookDetail = ({
           </label>
           <input
             id="detailPublisher"
+            readOnly={readOnly}
             type="text"
             className={FIELD}
             autoComplete="off"
@@ -76,6 +90,7 @@ export const BookDetail = ({
           </label>
           <input
             id="detailYear"
+            readOnly={readOnly}
             type="number"
             className={FIELD}
             min={1400}
@@ -92,6 +107,7 @@ export const BookDetail = ({
       </label>
       <select
         id="detailKind"
+        disabled={readOnly}
         className={FIELD}
         value={book?.kind ?? 'autre'}
         onChange={(e) => onChange({ kind: e.target.value as (typeof BOOK_KINDS)[number]['kind'] })}
@@ -107,6 +123,7 @@ export const BookDetail = ({
       </label>
       <textarea
         id="detailSummary"
+        readOnly={readOnly}
         className={`${FIELD} min-h-24 flex-1 resize-none leading-relaxed`}
         placeholder="Écris le résumé ici…"
         value={book?.summary ?? ''}
@@ -138,6 +155,7 @@ export const BookDetail = ({
           <Button
             variant="ghost"
             className="px-1.5 py-1 text-xs"
+            data-edit
             onClick={() => onChange({ cover: '' })}
           >
             Retirer

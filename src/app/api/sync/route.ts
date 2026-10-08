@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { claimRev, getDb, hasMongoConfig } from '@/lib/mongodb';
-import type { Book, Crate } from '@/types';
+import type { Book, Crate, Prop } from '@/types';
 
 /**
  * POST /api/sync — reçoit l'état courant (caisses + livres) et remplace celui de MongoDB, qui fait
@@ -12,7 +12,12 @@ import type { Book, Crate } from '@/types';
 export const POST = async (request: Request): Promise<NextResponse> => {
   if (!hasMongoConfig()) return NextResponse.json({ ok: false, reason: 'no-db' });
   try {
-    const body = (await request.json()) as { rev?: number; crates?: Crate[]; books?: Book[] };
+    const body = (await request.json()) as {
+      rev?: number;
+      crates?: Crate[];
+      books?: Book[];
+      props?: Prop[];
+    };
     const db = await getDb();
     const rev = body.rev ?? 0;
     if (!(await claimRev(db, rev))) return NextResponse.json({ ok: false, reason: 'conflict' });
@@ -21,6 +26,12 @@ export const POST = async (request: Request): Promise<NextResponse> => {
       await crates.deleteMany({});
       if (body.crates.length)
         await crates.insertMany(body.crates.map((c, order) => ({ ...c, order })));
+    }
+    if (Array.isArray(body.props)) {
+      const props = db.collection<Prop>('props');
+      await props.deleteMany({});
+      if (body.props.length)
+        await props.insertMany(body.props.map((p, order) => ({ ...p, order })));
     }
     if (Array.isArray(body.books)) {
       const books = db.collection<Book>('books');

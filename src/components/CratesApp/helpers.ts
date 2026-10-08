@@ -3,7 +3,7 @@ import { useState, useSyncExternalStore } from 'react';
 import { CrateEngine } from '@/engine/CrateEngine';
 import type { Snapshot } from '@/types';
 
-import { EMPTY_SNAPSHOT } from './constants';
+import { EDIT_TOKEN_KEY, EMPTY_SNAPSHOT } from './constants';
 import type { EngineHolder } from './types';
 
 const createHolder = (): EngineHolder => {
@@ -53,4 +53,69 @@ export const useCrateEngine = (): { holder: EngineHolder; snapshot: Snapshot } =
   const [holder] = useState(createHolder);
   const snapshot = useSyncExternalStore(holder.subscribe, holder.getSnapshot, getServerSnapshot);
   return { holder, snapshot };
+};
+
+const PHONE_QUERY = '(max-width: 767px)';
+const subscribePhone = (cb: () => void): (() => void) => {
+  const mq = window.matchMedia(PHONE_QUERY);
+  mq.addEventListener('change', cb);
+  return () => mq.removeEventListener('change', cb);
+};
+
+/** Écran de téléphone : colonne de droite remplacée par deux boutons en bas à gauche. */
+export const useIsPhone = (): boolean =>
+  useSyncExternalStore(
+    subscribePhone,
+    () => window.matchMedia(PHONE_QUERY).matches,
+    () => false,
+  );
+
+const readToken = (): string | null => {
+  try {
+    return localStorage.getItem(EDIT_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+};
+
+const writeToken = (token: string | null): void => {
+  try {
+    if (token) localStorage.setItem(EDIT_TOKEN_KEY, token);
+    else localStorage.removeItem(EDIT_TOKEN_KEY);
+  } catch {
+    // stockage indisponible : le déverrouillage ne dure que pour cette session
+  }
+};
+
+const callEdit = async (
+  body: { code: string } | { token: string },
+): Promise<string | true | null> => {
+  try {
+    const res = await fetch('/api/edit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = (await res.json()) as { ok: boolean; token?: string };
+    return data.ok ? (data.token ?? true) : null;
+  } catch {
+    return null;
+  }
+};
+
+/** Envoie le code au serveur ; s'il est bon, garde le jeton reçu dans le localStorage. */
+export const unlockEdit = async (code: string): Promise<boolean> => {
+  const token = await callEdit({ code });
+  if (typeof token !== 'string') return false;
+  writeToken(token);
+  return true;
+};
+
+/** Le jeton gardé sur l'appareil est-il toujours accepté par le serveur ? (sinon on l'oublie) */
+export const checkEditToken = async (): Promise<boolean> => {
+  const token = readToken();
+  if (!token) return false;
+  const ok = (await callEdit({ token })) === true;
+  if (!ok) writeToken(null);
+  return ok;
 };

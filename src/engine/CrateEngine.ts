@@ -11,6 +11,7 @@ import type {
   CrateSize,
   Dims,
   Id,
+  Prop,
   Mode,
   RotAxis,
   SavedState,
@@ -33,6 +34,7 @@ import { buildCrate, forgetCrateLabel, setCrateLabel, uprightLabel, type CrateRi
 import { buildRotateGizmo, type RotateGizmo } from './rotateGizmo';
 import { buildGrid, buildWorldAxes, type WorldAxes } from './worldAxes';
 import { disposeGroup } from './materials';
+import { buildRubik, type RubikRig } from './rubik';
 import { buildMoveGizmo, type MoveGizmo } from './moveGizmo';
 import {
   AXES,
@@ -54,16 +56,26 @@ type Drag = {
   sx: number;
   sy: number;
 };
-type DragBook = {
-  b: Book;
-  rig: BookRig;
-  /** Mode bibliothèque : clic seulement, pas de déplacement. */
-  locked: boolean;
+/** Déplacement libre d'un objet (cube) en Édition : aucune gravité, aucune collision. */
+type DragProp = {
+  p: Prop;
+  /** Écart entre le centre de l'objet et le point saisi. */
+  dx: number;
+  dy: number;
+  dz: number;
+  /** Hauteur du plan horizontal sur lequel on le glisse. */
   plane: number;
   moved: boolean;
   sx: number;
   sy: number;
-  over: Id | null;
+};
+/** Geste en cours sur un livre : un livre ne se déplace jamais, seulement un clic (ouvrir / sélectionner). */
+type DragBook = {
+  b: Book;
+  /** Le geste a dépassé le seuil de glisser : ce n'est plus un clic. */
+  dragged: boolean;
+  sx: number;
+  sy: number;
 };
 /** Champs modifiables d'un livre depuis la fiche. */
 export type BookPatch = Partial<
@@ -128,6 +140,10 @@ export class CrateEngine {
   private readonly booksGroup = new THREE.Group();
   private readonly bookRigs = new Map<Id, BookRig>();
 
+  private props: Prop[] = [];
+  private readonly propRigs = new Map<Id, RubikRig>();
+  /** Boîtes de sélection des objets libres (cube…), pour le picking en Édition. */
+  private readonly propHits: THREE.Mesh[] = [];
   private crates: Crate[] = [];
   private books: Book[] = [];
   private messy = false;
@@ -144,9 +160,16 @@ export class CrateEngine {
 
   /** Voisins du livre sorti (même caisse), présentés de part et d'autre : [précédent, suivant]. */
   private neighbors: [Id | null, Id | null] = [null, null];
+  /** Livre qui sort de l'écran en glissant (téléphone) pendant que le suivant arrive. */
+  private exiting: { rig: BookRig; dir: -1 | 1; start: number } | null = null;
+  /** Sens d'arrivée du livre qui vient d'être ouvert par ‹ › (0 : pas d'animation). */
+  private enterDir: -1 | 0 | 1 = 0;
+  /** Appelé quand on tente de déplacer un livre en Lecture. */
+  private onEditDenied: (() => void) | null = null;
   private hovered: BookRig | null = null;
   private hoverCrate: THREE.Mesh | null = null;
   private drag: Drag | null = null;
+  private dragProp: DragProp | null = null;
   private dragBook: DragBook | null = null;
   private downEmpty: [number, number] | null = null;
   private readonly rotGizmo: RotateGizmo;
@@ -273,6 +296,9 @@ export class CrateEngine {
       counts: Object.fromEntries(this.counts),
       ...this.stats,
       canUndo: this.history.length > 0,
+      browsing: this.resultIds !== null,
+      hasPrev: !!this.neighbors[0],
+      hasNext: !!this.neighbors[1],
       mode: this.mode,
     };
   }
@@ -298,13 +324,14 @@ export class CrateEngine {
         rev?: number;
         crates?: Crate[];
         books?: Book[];
+        props?: Prop[];
       };
       if (this.disposed || !data.ok) return;
       this.hydrated = false; // pas de renvoi de l'état qu'on est en train de charger
       const legacy = data.crates?.length ? null : loadLegacyState();
       this.restore(
         data.crates?.length
-          ? { crates: data.crates, books: data.books ?? [], messy: false }
+          ? { crates: data.crates, books: data.books ?? [], props: data.props ?? [], messy: false }
           : (legacy ?? { crates: defaultCrates(), books: [], messy: false }),
       );
       this.history.length = 0;
@@ -325,7 +352,12 @@ export class CrateEngine {
   private lastSent = '';
 
   private payload(): string {
-    return JSON.stringify({ crates: this.crates, books: this.books });
+    return JSON.stringify({ crates: this.crates, books: this.books, props: this.props });
+  }
+
+  /** Recharge l'état depuis la base (modifiée ailleurs : Claude, un script…). */
+  reload(): void {
+    void this.hydrate(false);
   }
 
   /** Envoie l'état complet à MongoDB ; refusé si la base a changé ailleurs → on la recharge. */
@@ -359,6 +391,7 @@ export class CrateEngine {
     this.updateNeighbors();
     this.placeCrates();
     this.layoutBooks();
+    this.syncProps();
     this.save();
     this.emit();
   }
@@ -366,7 +399,12 @@ export class CrateEngine {
   // ---------- historique ----------
   private pushHistory(): void {
     this.history.push(
-      structuredClone({ crates: this.crates, books: this.books, messy: this.messy }),
+      structuredClone({
+        crates: this.crates,
+        books: this.books,
+        props: this.props,
+        messy: this.messy,
+      }),
     );
     if (this.history.length > 60) this.history.shift();
   }
@@ -382,6 +420,7 @@ export class CrateEngine {
     this.closeBook(false);
     this.crates = s.crates;
     this.books = s.books;
+    this.props = s.props ?? [];
     this.messy = s.messy;
     for (const id of [...this.crateRigs.keys()])
       if (!this.crates.some((c) => c.id === id)) this.removeCrateRig(id);
@@ -401,6 +440,28 @@ export class CrateEngine {
     this.lastEdit = null;
     this.refresh();
     this.settleBooks();
+  }
+
+  /** Crée, place et retire les objets libres (cube…) selon la liste `props`. */
+  private syncProps(): void {
+    for (const [id, rig] of [...this.propRigs]) {
+      if (this.props.some((p) => p.id === id)) continue;
+      this.scene.remove(rig.group);
+      disposeGroup(rig.group);
+      this.propHits.splice(this.propHits.indexOf(rig.hit), 1);
+      this.propRigs.delete(id);
+    }
+    for (const p of this.props) {
+      let rig = this.propRigs.get(p.id);
+      if (!rig) {
+        rig = buildRubik(p.id);
+        this.scene.add(rig.group);
+        this.propRigs.set(p.id, rig);
+        this.propHits.push(rig.hit);
+      }
+      rig.group.position.set(p.x, p.y, p.z);
+      rig.group.rotation.y = p.ry;
+    }
   }
 
   /** Pose chaque livre directement à sa place, sans l'animation d'arrivée (chargement, restauration). */
@@ -584,7 +645,7 @@ export class CrateEngine {
     }
     for (const id of next) {
       const rig = id && this.bookRigs.get(id);
-      if (!rig) continue;
+      if (!rig || this.isPortrait()) continue;
       rig.mesh.layers.set(1);
       rig.mesh.castShadow = false;
     }
@@ -600,7 +661,7 @@ export class CrateEngine {
 
   closeBook(doRefresh = true): void {
     const rig = this.openId ? this.bookRigs.get(this.openId) : undefined;
-    if (rig) {
+    if (rig && rig !== this.exiting?.rig) {
       rig.mesh.layers.set(0);
       rig.mesh.castShadow = true;
       const book = this.books.find((b) => b.id === this.openId);
@@ -618,6 +679,46 @@ export class CrateEngine {
     if (!first) return;
     this.resultIds = ids;
     this.openBook(first);
+  }
+
+  /** Écran en portrait (téléphone) : un seul livre est présenté, sans voisins. */
+  private isPortrait(): boolean {
+    return this.camera.aspect < 1;
+  }
+
+  /** Passe au livre précédent (-1) ou suivant (1) : voisins de la caisse ou résultats de la recherche. */
+  stepBook(dir: -1 | 1): void {
+    const id = this.neighbors[dir < 0 ? 0 : 1];
+    if (!id) return;
+    const out = this.openId ? this.bookRigs.get(this.openId) : undefined;
+    if (!this.isPortrait() || !out) {
+      this.openBook(id);
+      return;
+    }
+    // téléphone : le livre actuel part du côté opposé, le suivant arrive du côté où on va
+    this.finishExit();
+    this.exiting = { rig: out, dir, start: performance.now() };
+    this.enterDir = dir;
+    this.openBook(id);
+  }
+
+  /** Remet le livre sorti de l'écran à sa place dans la caisse, sans qu'on le voie voler. */
+  private finishExit(): void {
+    const ex = this.exiting;
+    if (!ex) return;
+    this.exiting = null;
+    ex.rig.mesh.layers.set(0);
+    ex.rig.mesh.castShadow = true;
+    const book = this.books.find((b) => b.id === ex.rig.id);
+    if (book) setBookResolution(ex.rig, book, this.aniso, 1);
+    this.layoutBooks();
+    ex.rig.mesh.position.copy(ex.rig.target);
+    ex.rig.mesh.quaternion.copy(ex.rig.quat);
+  }
+
+  /** Fonction appelée quand un geste cherche à modifier la bibliothèque en Lecture (null : rien). */
+  setEditDeniedHandler(handler: (() => void) | null): void {
+    this.onEditDenied = handler;
   }
 
   /** Met une caisse en surbrillance (survol de sa place dans la fiche), ou l'éteint avec null. */
@@ -718,6 +819,8 @@ export class CrateEngine {
     for (const id of [...this.crateRigs.keys()]) this.removeCrateRig(id);
     for (const rig of this.bookRigs.values()) disposeBookRig(rig);
     this.bookRigs.clear();
+    for (const rig of this.propRigs.values()) disposeGroup(rig.group);
+    this.propRigs.clear();
     disposeGroup(this.rotGizmo.group);
     disposeGroup(this.moveGizmo.group);
     this.scene.remove(this.rotGizmo.group, this.moveGizmo.group);
@@ -982,6 +1085,25 @@ export class CrateEngine {
         return;
       }
     }
+    // objet libre (cube) : se saisit en Édition, avant les livres et les caisses
+    const hp =
+      this.mode === 'edit' ? this.raycaster.intersectObjects(this.propHits, false)[0] : undefined;
+    const prop = hp && this.props.find((q) => q.id === hp.object.userData.propId);
+    if (hp && prop) {
+      this.dragProp = {
+        p: prop,
+        dx: prop.x - hp.point.x,
+        dy: prop.y - hp.point.y,
+        dz: prop.z - hp.point.z,
+        plane: hp.point.y,
+        moved: false,
+        sx: e.clientX,
+        sy: e.clientY,
+      };
+      this.controls.enabled = false;
+      this.canvas.setPointerCapture(e.pointerId);
+      return;
+    }
     // livre d'abord
     const hb = this.raycaster.intersectObjects(this.visibleBookMeshes(), false)[0];
     if (hb) {
@@ -999,16 +1121,7 @@ export class CrateEngine {
       const b = this.books.find((k) => k.id === id);
       const rig = this.bookRigs.get(id);
       if (b && rig) {
-        this.dragBook = {
-          b,
-          rig,
-          locked: this.mode === 'view',
-          plane: hb.point.y,
-          moved: false,
-          sx: e.clientX,
-          sy: e.clientY,
-          over: null,
-        };
+        this.dragBook = { b, dragged: false, sx: e.clientX, sy: e.clientY };
         this.controls.enabled = false;
         this.canvas.setPointerCapture(e.pointerId);
         return;
@@ -1041,29 +1154,41 @@ export class CrateEngine {
       this.tooltip.style.left = `${e.clientX}px`;
       this.tooltip.style.top = `${e.clientY}px`;
     }
-    const db = this.dragBook;
-    if (db) {
-      if (db.locked) return;
-      if (!db.moved) {
-        if (Math.hypot(e.clientX - db.sx, e.clientY - db.sy) < 5) return;
-        db.moved = true;
+    const dp = this.dragProp;
+    if (dp) {
+      if (!dp.moved) {
+        if (Math.hypot(e.clientX - dp.sx, e.clientY - dp.sy) < 5) return;
+        dp.moved = true;
         this.pushHistory();
         this.canvas.style.cursor = 'grabbing';
-        this.showTooltip(false);
       }
       this.raycaster.setFromCamera(this.pointer, this.camera);
-      const gp = this.groundPoint(db.plane);
-      if (gp) {
-        db.rig.target.set(gp.x, gp.y + 0.4, gp.z);
-        db.rig.quat.identity();
+      if (e.shiftKey) {
+        // Maj : monter / descendre, sur un plan vertical face à la caméra
+        this.camera.getWorldDirection(this._fwd);
+        this._fwd.y = 0;
+        this._plane.setFromNormalAndCoplanarPoint(
+          this._fwd.normalize(),
+          this._tv.set(dp.p.x - dp.dx, dp.plane, dp.p.z - dp.dz),
+        );
+        const hit = this.raycaster.ray.intersectPlane(this._plane, this._hitP);
+        if (hit) dp.p.y = Math.max(0, hit.y + dp.dy);
+      } else {
+        const gp = this.groundPoint(dp.plane);
+        if (gp) {
+          dp.p.x = gp.x + dp.dx;
+          dp.p.z = gp.z + dp.dz;
+        }
       }
-      // caisse survolée = destination
-      const over = this.raycaster.intersectObjects(this.hitboxes, false)[0];
-      const overId = over ? (over.object.userData.id as Id) : null;
-      if (overId !== db.over) {
-        db.over = overId;
-        for (const rig of this.crateRigs.values())
-          rig.outline.visible = rig.id === overId || rig.id === this.selectedId;
+      this.syncProps();
+      return;
+    }
+    const db = this.dragBook;
+    if (db) {
+      // un livre ne se déplace pas : un glisser est signalé une fois (« pas touche ») et ignoré
+      if (!db.dragged && Math.hypot(e.clientX - db.sx, e.clientY - db.sy) >= 5) {
+        db.dragged = true;
+        this.onEditDenied?.();
       }
       return;
     }
@@ -1088,6 +1213,19 @@ export class CrateEngine {
   };
 
   private readonly onPointerUp = (e: PointerEvent): void => {
+    const dp = this.dragProp;
+    if (dp) {
+      try {
+        this.canvas.releasePointerCapture(e.pointerId);
+      } catch {
+        // capture déjà relâchée
+      }
+      this.dragProp = null;
+      this.controls.enabled = true;
+      this.canvas.style.cursor = '';
+      if (dp.moved) this.refresh();
+      return;
+    }
     const db = this.dragBook;
     if (db) {
       try {
@@ -1098,9 +1236,8 @@ export class CrateEngine {
       this.dragBook = null;
       this.controls.enabled = true;
       this.canvas.style.cursor = '';
-      if (db.moved) {
-        this.dropBook(db.b, db.over);
-        this.refresh();
+      if (db.dragged) {
+        // glisser sur un livre : rien ne bouge, rien ne s'ouvre
       } else if (this.openId === db.b.id)
         this.closeBook(); // clic sur le livre sorti : on le range
       else if (this.mode === 'edit') {
@@ -1157,35 +1294,6 @@ export class CrateEngine {
       this.removeCrate(this.selectedId);
     }
   };
-
-  /** Dépose un livre dans une caisse (à la position pointée dans la rangée) ou à côté (null). */
-  private dropBook(b: Book, crateId: Id | null): void {
-    this.books.splice(this.books.indexOf(b), 1);
-    b.crate = crateId;
-    if (crateId) {
-      const c = this.crate(crateId);
-      const rig = this.crateRigs.get(crateId);
-      const fr =
-        c &&
-        crateFrame(
-          c,
-          Math.max(b.h, ...this.books.filter((k) => k.crate === crateId).map((k) => k.h)),
-        );
-      if (fr && rig) {
-        const p = rig.group.worldToLocal(this.bookRigs.get(b.id)!.mesh.position.clone());
-        const r = p.dot(fr.R);
-        const after = this.books.find((k) => {
-          const kr = this.bookRigs.get(k.id)?.r;
-          return k.crate === crateId && kr != null && kr > r;
-        });
-        if (after) {
-          this.books.splice(this.books.indexOf(after), 0, b);
-          return;
-        }
-      }
-    }
-    this.books.push(b);
-  }
 
   /**
    * Aimantation : colle les bords de la caisse glissée aux bords des autres, sinon grille.
@@ -1266,8 +1374,15 @@ export class CrateEngine {
   }
 
   private updateHover(): void {
-    if (this.drag || this.dragBook) return;
+    if (this.drag || this.dragBook || this.dragProp) return;
     this.raycaster.setFromCamera(this.pointer, this.camera);
+    if (this.mode === 'edit' && this.raycaster.intersectObjects(this.propHits, false).length) {
+      this.hovered = null;
+      this.hoverCrate = null;
+      this.showTooltip(false);
+      this.canvas.style.cursor = 'move';
+      return;
+    }
     if (this.rotGizmo.group.visible) {
       const hm = this.raycaster.intersectObjects(this.moveGizmo.activeHits(), false)[0];
       this.moveGizmo.highlight(hm ? (hm.object.userData.axis as RotAxis) : null);
@@ -1301,12 +1416,31 @@ export class CrateEngine {
     this._right.crossVectors(this._fwd, this.camera.up).normalize();
     const rig = this.openId ? this.bookRigs.get(this.openId) : undefined;
     if (!rig) return;
-    const dist = Math.max(3.8, rig.mesh.geometry.parameters.height * 1.9);
+    let dist = Math.max(3.8, rig.mesh.geometry.parameters.height * 1.9);
+    const portrait = this.isPortrait();
+    const openW = rig.mesh.geometry.parameters.depth;
+    const spread = 1.15;
+    const gaps = this.neighbors.map((id) => {
+      const nr = id && this.bookRigs.get(id);
+      return nr ? (openW + nr.mesh.geometry.parameters.depth * NEIGHBOR_SCALE) / 2 + 0.3 : 0;
+    });
+    if (portrait) {
+      // téléphone : un seul livre, le plus grand possible (largeur ou hauteur, 8 % de marge)
+      const tanHalf = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2));
+      const fitH = (rig.mesh.geometry.parameters.height / 2) * 1.08;
+      const fitW = (openW / 2) * 1.08;
+      dist = Math.max(fitH / tanHalf, fitW / (tanHalf * this.camera.aspect));
+    }
+    const shift = portrait ? 0 : -dist * 0.22;
     this._tv
       .copy(this.camera.position)
       .addScaledVector(this._fwd, dist)
-      .addScaledVector(this._right, -dist * 0.22);
+      .addScaledVector(this._right, shift);
     rig.target.copy(this._tv);
+    const tanHalfV = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2));
+    const off = tanHalfV * this.camera.aspect * dist * 2;
+    if (this.enterDir !== 0)
+      rig.mesh.position.copy(this._tv).addScaledVector(this._right, this.enterDir * off);
     // couverture (+X) par défaut, dos avec le résumé (-X) une fois retourné
     this._bx.copy(this._fwd);
     if (!this.openBack) this._bx.negate();
@@ -1314,18 +1448,28 @@ export class CrateEngine {
     this._by.crossVectors(this._bz, this._bx);
     this._basis.makeBasis(this._bx, this._by, this._bz);
     rig.quat.setFromRotationMatrix(this._basis);
+    if (this.enterDir !== 0) {
+      rig.mesh.quaternion.copy(rig.quat);
+      this.enterDir = 0;
+    }
+    const ex = this.exiting;
+    if (ex) {
+      ex.rig.target.copy(this._tv).addScaledVector(this._right, -ex.dir * off);
+      ex.rig.quat.copy(rig.quat);
+      if (performance.now() - ex.start > 600) this.finishExit();
+    }
 
-    // voisins : couverture visible, un peu en retrait, tournés vers le livre sorti
-    const openW = rig.mesh.geometry.parameters.depth;
+    // voisins : couverture visible, un peu en retrait, tournés vers le livre sorti (pas sur téléphone)
+    if (portrait) return;
     this.neighbors.forEach((id, i) => {
       const nr = id && this.bookRigs.get(id);
       if (!nr) return;
       const side = i === 0 ? -1 : 1;
-      const gap = (openW + nr.mesh.geometry.parameters.depth * NEIGHBOR_SCALE) / 2 + 0.3;
+      const gap = gaps[i] ?? 0;
       nr.target
         .copy(this.camera.position)
         .addScaledVector(this._fwd, dist + 0.6)
-        .addScaledVector(this._right, -dist * 0.22 + side * gap * 1.15);
+        .addScaledVector(this._right, shift + side * gap * spread);
       this._bx.copy(this._fwd).negate();
       this._bz.crossVectors(this._bx, this.camera.up).normalize();
       this._by.crossVectors(this._bz, this._bx);
@@ -1347,7 +1491,8 @@ export class CrateEngine {
       if (rig === this.hovered && rig.id !== this.openId) this._tv.y += 0.15;
       rig.mesh.position.lerp(this._tv, k);
       rig.mesh.quaternion.slerp(rig.quat, k);
-      const s = this.openId && this.neighbors.includes(rig.id) ? NEIGHBOR_SCALE : 1;
+      const s =
+        this.openId && !this.isPortrait() && this.neighbors.includes(rig.id) ? NEIGHBOR_SCALE : 1;
       rig.mesh.scale.setScalar(rig.mesh.scale.x + (s - rig.mesh.scale.x) * k);
     }
     this.updateHover();

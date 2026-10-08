@@ -5,6 +5,10 @@ export type BookPatch = Partial<
 >;
 
 export type BookDetailProps = {
+  /** Édition verrouillée : la fiche se lit, toute modification est refusée. */
+  readOnly?: boolean;
+  /** Appelé quand on tente de modifier alors que c'est verrouillé. */
+  onDenied?: () => void;
   /** null : aucun livre sorti, la fiche est masquée. */
   book: Book | null;
   /** Numéro de sa caisse (G1, M2…), ou null si à côté. */

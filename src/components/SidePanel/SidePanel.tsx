@@ -17,6 +17,9 @@ const H2 = ({ children }: { children: string }) => (
 );
 
 export const SidePanel = ({
+  defaultOpen = false,
+  editLocked = false,
+  onUnlockEdit,
   snapshot,
   onAddCrate,
   onCrateSize,
@@ -26,10 +29,10 @@ export const SidePanel = ({
   onCrateDelete,
   onMode,
   onPickCrate,
-  onRecenter,
   onUndo,
 }: SidePanelProps) => {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
+  const [wrongCode, setWrongCode] = useState(false);
   const edit = snapshot.mode === 'edit';
   const selected = snapshot.crates.find((c) => c.id === snapshot.selectedId) ?? null;
   const labels = crateLabels(snapshot.crates);
@@ -55,13 +58,46 @@ export const SidePanel = ({
               <Button
                 key={m.mode}
                 variant={snapshot.mode === m.mode ? 'active' : 'default'}
-                title={m.title}
+                title={
+                  editLocked && m.mode === 'edit'
+                    ? 'Verrouillé : saisis le code ci-dessous'
+                    : m.title
+                }
+                disabled={editLocked && m.mode === 'edit'}
                 onClick={() => onMode(m.mode)}
               >
                 {m.label}
               </Button>
             ))}
           </div>
+          {editLocked && (
+            <form
+              className="mt-1.5"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const input = e.currentTarget.elements.namedItem('editCode') as HTMLInputElement;
+                const ok = await onUnlockEdit?.(input.value);
+                setWrongCode(!ok);
+                input.value = '';
+              }}
+            >
+              <div className="flex items-center gap-1.5">
+                <label htmlFor="editCode" className="text-xs text-muted">
+                  Code
+                </label>
+                <input
+                  id="editCode"
+                  name="editCode"
+                  type="password"
+                  className="min-w-0 flex-1 rounded-lg border border-ink/10 bg-white px-2.5 py-1.5 text-sm text-ink"
+                  autoComplete="off"
+                  onChange={() => setWrongCode(false)}
+                />
+                <Button type="submit">OK</Button>
+              </div>
+              {wrongCode && <p className="m-0 mt-1 text-xs text-[#c0392b]">Code incorrect.</p>}
+            </form>
+          )}
 
           <H2>Caisses</H2>
           {edit && (
@@ -117,14 +153,6 @@ export const SidePanel = ({
               </ul>
             </>
           )}
-
-          <H2>Vue</H2>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Button onClick={onRecenter}>Recentrer</Button>
-            <Button onClick={() => setOpen(false)} title="Replier le panneau">
-              Replier
-            </Button>
-          </div>
         </div>
       )}
     </aside>

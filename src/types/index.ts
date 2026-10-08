@@ -25,6 +25,18 @@ export type Crate = {
   overhang?: boolean;
 };
 
+/** Objet décoratif libre (pas un livre) : position quelconque, aucune contrainte de caisse. */
+export type Prop = {
+  id: Id;
+  kind: 'rubik';
+  /** Centre du pied de l'objet, en unités scène. */
+  x: number;
+  y: number;
+  z: number;
+  /** Rotation autour de l'axe vertical (radians). */
+  ry: number;
+};
+
 export type BookKind = 'roman' | 'bd' | 'documentaire' | 'guide' | 'dictionnaire' | 'autre';
 
 export type Book = {
@@ -57,6 +69,7 @@ export type CratePreset = 'tranche' | 'debout';
 export type SavedState = {
   crates: Crate[];
   books: Book[];
+  props?: Prop[];
   messy: boolean;
 };
 
@@ -76,5 +89,10 @@ export type Snapshot = {
   full: number;
   /** Une action peut être annulée. */
   canUndo: boolean;
+  /** Un livre est présenté depuis une recherche (parcours des résultats). */
+  browsing: boolean;
+  /** Il y a un livre précédent / suivant à ouvrir (voisins ou résultats de recherche). */
+  hasPrev: boolean;
+  hasNext: boolean;
   mode: Mode;
 };

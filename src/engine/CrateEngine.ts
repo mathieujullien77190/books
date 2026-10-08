@@ -29,6 +29,7 @@ import {
 } from './books';
 import { applyGravity, crateBounds, nextStepPosition, type Bounds } from './cratePlacement';
 import { LITE_KEY, NEIGHBOR_SCALE, OPEN_BOOK_SCALE } from './constants';
+import { applyBookPatch, type BookPatch } from './bookPatch';
 import { buildCrate, forgetCrateLabel, setCrateLabel, uprightLabel, type CrateRig } from './crate';
 import { Decor } from './decor';
 import { History } from './history';
@@ -44,22 +45,7 @@ import { buildRotateGizmo, type RotateGizmo } from './rotateGizmo';
 import { Showcase, focusCrateView, recenterView } from './view';
 import { buildGrid, buildWorldAxes, type WorldAxes } from './worldAxes';
 
-/** Champs modifiables d'un livre depuis la fiche. */
-export type BookPatch = Partial<
-  Pick<
-    Book,
-    | 'title'
-    | 'summary'
-    | 'color'
-    | 'cover'
-    | 'author'
-    | 'publisher'
-    | 'year'
-    | 'kind'
-    | 'isbn'
-    | 'isbnConfidence'
-  >
->;
+export type { BookPatch };
 
 /**
  * Scène three.js des caisses et des livres. Façade : détient l'état du domaine (caisses, livres,
@@ -627,32 +613,7 @@ export class CrateEngine {
     if (!this.lastEdit || this.lastEdit.id !== id || now - this.lastEdit.ts > 1500)
       this.pushHistory();
     this.lastEdit = { id, ts: now };
-    const title = patch.title?.trim();
-    if (title) b.title = title;
-    if (patch.color !== undefined) b.color = patch.color;
-    if (patch.summary !== undefined) b.summary = patch.summary;
-    if ('cover' in patch) b.cover = patch.cover || undefined;
-    if ('author' in patch) b.author = patch.author?.trim() || undefined;
-    if ('publisher' in patch) b.publisher = patch.publisher?.trim() || undefined;
-    if ('year' in patch)
-      b.year = patch.year && Number.isFinite(patch.year) ? patch.year : undefined;
-    if ('kind' in patch) b.kind = patch.kind;
-    if ('isbn' in patch) b.isbn = patch.isbn?.trim() || undefined;
-    if ('isbnConfidence' in patch) b.isbnConfidence = b.isbn ? patch.isbnConfidence : undefined;
-    const meta =
-      'author' in patch ||
-      'publisher' in patch ||
-      'year' in patch ||
-      'kind' in patch ||
-      'isbn' in patch ||
-      'isbnConfidence' in patch;
-    if (
-      patch.title !== undefined ||
-      patch.color !== undefined ||
-      patch.summary !== undefined ||
-      'cover' in patch ||
-      meta
-    ) {
+    if (applyBookPatch(b, patch)) {
       window.clearTimeout(this.texTimer);
       this.texTimer = window.setTimeout(() => {
         const rig = this.bookRigs.get(id);

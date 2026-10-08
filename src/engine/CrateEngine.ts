@@ -77,6 +77,10 @@ type Bounds = {
   cz: number;
 };
 
+/** Apparition des livres au chargement : nombre de livres par vague et délai entre deux vagues. */
+const REVEAL_BATCH = 12;
+const REVEAL_MS = 60;
+
 const HOME_DIR = new THREE.Vector3(0, 0.12, 1).normalize(); // vue de face, à peine surélevée
 /** Résolution des textures du livre sorti (1 = celle des livres rangés). */
 const OPEN_BOOK_SCALE = 2;
@@ -294,6 +298,8 @@ export class CrateEngine {
   }
 
   private syncTimer = 0;
+  /** Numéro du dernier chargement : une apparition progressive s'arrête si un autre chargement démarre. */
+  private loadId = 0;
   /** État MongoDB lu : avant ça, envoyer l'état local écraserait la base (sync = remplacement total). */
   private hydrated = false;
 
@@ -302,6 +308,7 @@ export class CrateEngine {
    * sauvegarde localStorage (ou les caisses par défaut), puis on efface cette copie locale.
    */
   private async hydrate(first = true): Promise<void> {
+    const load = ++this.loadId;
     try {
       const res = await fetch('/api/state', { cache: 'no-store' });
       const data = (await res.json()) as {
@@ -313,20 +320,44 @@ export class CrateEngine {
       if (this.disposed || !data.ok) return;
       this.hydrated = false; // pas de renvoi de l'état qu'on est en train de charger
       const legacy = data.crates?.length ? null : loadLegacyState();
+      const stagger = first && !!data.crates?.length && !!data.books?.length;
       this.restore(
         data.crates?.length
-          ? { crates: data.crates, books: data.books ?? [], messy: false }
+          ? { crates: data.crates, books: stagger ? [] : (data.books ?? []), messy: false }
           : (legacy ?? { crates: defaultCrates(), books: [], messy: false }),
       );
       this.history.length = 0;
       this.rev = data.rev ?? 0;
-      this.lastSent = data.crates?.length ? this.payload() : '';
+      if (stagger) {
+        // au chargement : les caisses d'abord, puis les livres qui arrivent par vagues (hydrated reste faux
+        // jusqu'au bout : un état partiel ne doit jamais être envoyé à la base)
+        this.recenter();
+        this.emit();
+        await this.revealBooks(data.books!, load);
+        if (this.disposed || load !== this.loadId) return; // un rechargement a pris le relais
+        this.lastSent = this.payload();
+      } else this.lastSent = data.crates?.length ? this.payload() : '';
       this.hydrated = true;
       if (data.crates?.length || (await this.push())) clearLegacyState();
       if (first) this.recenter();
       this.emit();
     } catch {
       // base injoignable : rien n'est envoyé, pour ne jamais écraser la base avec un état vide
+    }
+  }
+
+  /** Fait apparaître les livres par vagues, après une courte pause où l'on ne voit que les caisses. */
+  private async revealBooks(books: Book[], load: number): Promise<void> {
+    const wait = (ms: number): Promise<void> => new Promise((r) => window.setTimeout(r, ms));
+    await wait(600);
+    for (let i = 0; i < books.length && !this.disposed && load === this.loadId; i += REVEAL_BATCH) {
+      this.books = books.slice(0, i + REVEAL_BATCH);
+      this.refresh();
+      await wait(REVEAL_MS);
+    }
+    if (!this.disposed && load === this.loadId) {
+      this.books = books;
+      this.refresh();
     }
   }
 

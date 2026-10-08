@@ -1333,6 +1333,27 @@ export class CrateEngine {
       this.browseMissing();
       return;
     }
+    // un livre manquant du tas : un clic le montre en gros plan, comme le défilé
+    if (!this.openId && this.ghostItems.length) {
+      const hit = this.raycaster.intersectObjects(
+        this.ghostItems.map((g) => g.mesh),
+        true,
+      )[0];
+      if (hit) {
+        const idx = this.ghostItems.findIndex((g) => {
+          for (let o: THREE.Object3D | null = hit.object; o; o = o.parent)
+            if (o === g.mesh) return true;
+          return false;
+        });
+        if (idx >= 0) {
+          this.closeBook(false);
+          this.missingIdx = idx;
+          this.focusGhost();
+          this.emit();
+          return;
+        }
+      }
+    }
     // mésange (Édition) : ses flèches déplacent d'un cran, un clic sur elle la sélectionne
     if (this.mode === 'edit' && this.decorGizmo.group.visible) {
       const hd = this.raycaster.intersectObjects(this.decorGizmo.activeHits(), false)[0];

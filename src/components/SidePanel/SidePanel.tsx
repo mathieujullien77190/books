@@ -3,7 +3,6 @@ import { useMemo, useState } from 'react';
 import CrateList from '@/components/CrateList';
 import CrateSelection from '@/components/CrateSelection';
 import Button from '@/components/ui/Button';
-import IconButton from '@/components/ui/IconButton';
 import Panel from '@/components/ui/Panel';
 import TextInput from '@/components/ui/TextInput';
 import { APP_NAME, SIZE_KEYS, SIZES } from '@/constants';
@@ -37,8 +36,6 @@ export const SidePanel = ({
   const [open, setOpen] = useState(defaultOpen);
   const [wrongCode, setWrongCode] = useState(false);
   const [code, setCode] = useState('');
-  /** Champ du code d'Édition replié derrière la petite clé 🔑 (comme la clé API du panneau Claude). */
-  const [showCode, setShowCode] = useState(false);
   const edit = snapshot.mode === 'edit';
   const selected = snapshot.crates.find((c) => c.id === snapshot.selectedId) ?? null;
   const labels = useMemo(() => crateLabels(snapshot.crates), [snapshot.crates]);
@@ -64,14 +61,14 @@ export const SidePanel = ({
       </button>
       {open && (
         <div className="max-h-[calc(100dvh-340px)] [scrollbar-width:thin] overflow-y-auto border-t border-ink/10 px-4 pt-1 pb-3">
-          <div className="mt-2 flex gap-1.5">
+          <div className="mt-2 flex flex-wrap items-start gap-1.5">
             {MODES.map((m) => (
               <Button
                 key={m.mode}
                 variant={snapshot.mode === m.mode ? 'active' : 'default'}
                 pressed={snapshot.mode === m.mode}
                 title={
-                  editLocked && m.mode === 'edit' ? 'Verrouillé : saisis le code (🔑)' : m.title
+                  editLocked && m.mode === 'edit' ? 'Verrouillé : saisis le code à côté' : m.title
                 }
                 disabled={editLocked && m.mode === 'edit'}
                 onClick={() => onMode(m.mode)}
@@ -80,35 +77,22 @@ export const SidePanel = ({
               </Button>
             ))}
             {editLocked && (
-              <IconButton
-                className={`ml-auto h-9 w-9 shrink-0 rounded-lg bg-white text-base ${showCode ? 'border-ink' : ''}`}
-                label="Code d'Édition"
-                aria-expanded={showCode}
-                onClick={() => setShowCode((v) => !v)}
+              <form
+                className="flex min-w-0 flex-1 items-center gap-1.5"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  const ok = await onUnlockEdit?.(code);
+                  setWrongCode(!ok);
+                  setCode('');
+                }}
               >
-                🔑
-              </IconButton>
-            )}
-          </div>
-          {editLocked && showCode && (
-            <form
-              className="mt-1.5"
-              onSubmit={async (e) => {
-                e.preventDefault();
-                const ok = await onUnlockEdit?.(code);
-                setWrongCode(!ok);
-                setCode('');
-                if (ok) setShowCode(false);
-              }}
-            >
-              <div className="flex items-center gap-1.5">
                 <TextInput
                   id="editCode"
                   name="editCode"
                   type="password"
-                  placeholder="Code"
+                  placeholder="🔑 Code"
                   aria-label="Code d'Édition"
-                  className="min-w-0 flex-1 py-1.5"
+                  className="h-9 min-w-0 flex-1 py-0"
                   autoComplete="off"
                   value={code}
                   onChange={(e) => {
@@ -116,14 +100,16 @@ export const SidePanel = ({
                     setWrongCode(false);
                   }}
                 />
-                <Button type="submit">OK</Button>
-              </div>
-              {wrongCode && (
-                <p role="alert" className="m-0 mt-1 text-xs text-[#c0392b]">
-                  Code incorrect.
-                </p>
-              )}
-            </form>
+                <Button type="submit" className="h-9">
+                  OK
+                </Button>
+              </form>
+            )}
+          </div>
+          {editLocked && wrongCode && (
+            <p role="alert" className="m-0 mt-1 text-xs text-[#c0392b]">
+              Code incorrect.
+            </p>
           )}
 
           <H2>Caisses</H2>

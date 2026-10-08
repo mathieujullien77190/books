@@ -1,5 +1,3 @@
-import * as THREE from 'three';
-
 import { PAD, SIZES } from '@/constants';
 import { uid } from '@/helpers';
 import type {
@@ -15,13 +13,8 @@ import type {
 } from '@/types';
 
 import { applyBookPatch, type BookPatch } from './bookPatch';
-import {
-  disposeBookRig,
-  makeBookRig,
-  setBookResolution,
-  updateBookTextures,
-  type BookRig,
-} from './books';
+import { BookRigs } from './bookRigs';
+import { setBookResolution, updateBookTextures } from './books';
 import { OpenBook } from './openBook';
 import { OPEN_BOOK_SCALE } from './constants';
 import { CrateRigs } from './crateRigs';
@@ -54,10 +47,9 @@ export class CrateEngine {
   private readonly loop: RenderLoop;
 
   private readonly crateRigs: CrateRigs;
-  private readonly booksGroup = new THREE.Group();
   /** Tas des tomes manquants, à gauche des caisses. */
   private readonly missing: MissingPile;
-  private readonly bookRigs = new Map<Id, BookRig>();
+  private readonly bookRigs: BookRigs;
 
   private crates: Crate[] = [];
   private books: Book[] = [];
@@ -117,7 +109,10 @@ export class CrateEngine {
     const stage = new Stage(canvas, transparent);
     this.stage = stage;
     this.missing = new MissingPile(stage.aniso);
-    stage.scene.add(this.booksGroup);
+    this.bookRigs = new BookRigs(stage.aniso, (rig) => {
+      if (this.input.hovered === rig) this.input.hovered = null;
+    });
+    stage.scene.add(this.bookRigs.group);
     stage.scene.add(this.missing.group);
     this.crateRigs = new CrateRigs(stage.scene, {
       crates: () => this.crates,
@@ -130,7 +125,7 @@ export class CrateEngine {
     stage.scene.add(this.decor.gizmo.group);
     this.opened = new OpenBook({
       books: () => this.books,
-      bookRigs: this.bookRigs,
+      bookRigs: this.bookRigs.rigs,
       hasCrate: (id) => this.crateRigs.rigs.has(id),
       aniso: stage.aniso,
       isPortrait: () => stage.isPortrait(),
@@ -148,7 +143,7 @@ export class CrateEngine {
       sun: stage.sun,
       missing: this.missing,
       crateRigs: this.crateRigs.rigs,
-      bookRigs: this.bookRigs,
+      bookRigs: this.bookRigs.rigs,
       books: () => this.books,
       openId: () => this.opened.id,
       touch: () => stage.touch(),
@@ -178,8 +173,8 @@ export class CrateEngine {
       crates: () => this.crates,
       crateById: (id) => this.crate(id),
       bookById: (id) => this.books.find((b) => b.id === id),
-      bookRigById: (id) => this.bookRigs.get(id),
-      bookMeshes: () => this.booksGroup.children.filter((m) => m.visible),
+      bookRigById: (id) => this.bookRigs.rigs.get(id),
+      bookMeshes: () => this.bookRigs.group.children.filter((m) => m.visible),
       stepCrate: (id, axis, sign) => this.stepCrate(id, axis, sign),
       rotateCrate: (id, axis, sign) => this.rotateCrate(id, axis, sign),
       stepMesange: (axis, sign) => this.stepMesange(axis, sign),
@@ -210,7 +205,7 @@ export class CrateEngine {
       missing: this.missing,
       decor: this.decor,
       canvas,
-      bookRigs: this.bookRigs,
+      bookRigs: this.bookRigs.rigs,
       openId: () => this.opened.id,
       openBack: () => this.opened.back,
       isPortrait: () => stage.isPortrait(),
@@ -353,30 +348,12 @@ export class CrateEngine {
     this.books = s.books;
     for (const id of [...this.crateRigs.rigs.keys()])
       if (!this.crates.some((c) => c.id === id)) this.crateRigs.remove(id);
-    for (const [id, rig] of [...this.bookRigs]) {
-      if (this.books.some((b) => b.id === id)) continue;
-      disposeBookRig(rig);
-      this.booksGroup.remove(rig.mesh);
-      this.bookRigs.delete(id);
-      if (this.input.hovered === rig) this.input.hovered = null;
-    }
-    for (const b of this.books) {
-      const rig = this.bookRigs.get(b.id);
-      if (rig) updateBookTextures(rig, b, this.stage.aniso);
-    }
+    this.bookRigs.sync(this.books);
     if (this.selectedId && !this.crates.some((c) => c.id === this.selectedId))
       this.selectedId = null;
     this.lastEdit = null;
     this.refresh();
-    this.settleBooks();
-  }
-
-  /** Pose chaque livre directement à sa place, sans l'animation d'arrivée (chargement, restauration). */
-  private settleBooks(): void {
-    for (const rig of this.bookRigs.values()) {
-      rig.mesh.position.copy(rig.target);
-      rig.mesh.quaternion.copy(rig.quat);
-    }
+    this.bookRigs.settle();
   }
 
   // ---------- API publique : caisses ----------
@@ -463,13 +440,7 @@ export class CrateEngine {
     this.pushHistory();
     if (this.opened.id === id) this.closeBook(false);
     this.books = this.books.filter((b) => b.id !== id);
-    const rig = this.bookRigs.get(id);
-    if (rig) {
-      disposeBookRig(rig);
-      this.booksGroup.remove(rig.mesh);
-      this.bookRigs.delete(id);
-      if (this.input.hovered === rig) this.input.hovered = null;
-    }
+    this.bookRigs.remove(id);
     this.refresh();
   }
 
@@ -484,7 +455,7 @@ export class CrateEngine {
     if (applyBookPatch(b, patch)) {
       window.clearTimeout(this.texTimer);
       this.texTimer = window.setTimeout(() => {
-        const rig = this.bookRigs.get(id);
+        const rig = this.bookRigs.rigs.get(id);
         if (!rig) return;
         updateBookTextures(rig, b, this.stage.aniso);
         if (this.opened.id === id) setBookResolution(rig, b, this.stage.aniso, OPEN_BOOK_SCALE);
@@ -617,8 +588,7 @@ export class CrateEngine {
     this.loop.stop();
     window.clearTimeout(this.texTimer);
     this.input.detach();
-    for (const rig of this.bookRigs.values()) disposeBookRig(rig);
-    this.bookRigs.clear();
+    this.bookRigs.dispose();
     this.crateRigs.dispose();
     this.missing.dispose();
     disposeGroup(this.decor.gizmo.group);
@@ -643,16 +613,6 @@ export class CrateEngine {
     return crateBounds(this.crates);
   }
 
-  private bookRig(b: Book): BookRig {
-    let rig = this.bookRigs.get(b.id);
-    if (!rig) {
-      rig = makeBookRig(b, this.stage.aniso);
-      this.booksGroup.add(rig.mesh);
-      this.bookRigs.set(b.id, rig);
-    }
-    return rig;
-  }
-
   /** Chaque livre appartient à une caisse (b.crate) ou à la pile « à côté » (voir layout.ts). */
   private layoutBooks(): void {
     const { counts, stats } = layoutBooks({
@@ -662,7 +622,7 @@ export class CrateEngine {
       bounds: this.bounds(),
       aniso: this.stage.aniso,
       mode: this.mode,
-      rigOf: (b) => this.bookRig(b),
+      rigOf: (b) => this.bookRigs.ensure(b),
       isHeld: (b) => this.input.heldBook === b || b.id === this.opened.id,
     });
     this.counts = counts;

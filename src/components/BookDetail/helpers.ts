@@ -49,10 +49,9 @@ export const seriesOf = (
     for (let n = bv.num; n <= bv.last; n++) owned.add(n);
     total = Math.max(total, b.seriesTotal ?? 0, bv.last);
   }
-  // les tomes connus de la série mais absents de la bibliothèque sont listés comme manquants
-  // (pas pour les numéros de périodique comme La Hulotte, qui n'ont pas de fin)
-  if (v.mark === 'T')
-    for (let n = 1; n <= total; n++)
-      if (!owned.has(n)) items.push({ id: null, label: `${v.mark}${n}`, num: n });
+  // les numéros connus de la série (jusqu'au dernier possédé ou au total enregistré) mais absents
+  // de la bibliothèque sont listés comme manquants, La Hulotte comprise
+  for (let n = 1; n <= total; n++)
+    if (!owned.has(n)) items.push({ id: null, label: `${v.mark}${n}`, num: n });
   return { name: v.prefix, items: items.sort((a, b) => a.num - b.num), owned: owned.size, total };
 };

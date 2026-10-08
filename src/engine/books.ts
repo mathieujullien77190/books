@@ -18,6 +18,9 @@ export type BookRig = {
   r: number | null;
   /** Livre couché : le titre de la tranche est retourné d'un demi-tour pour se lire à l'endroit. */
   flat: boolean;
+  /** Couverture et dos ne sont dessinés qu'au besoin (livre couché, voisin, sorti) : 300 livres debout
+   * ne montrent que leur tranche, inutile de fabriquer 600 grandes textures au chargement. */
+  faces: { cover: boolean; back: boolean };
 };
 
 const applySpineTurn = (rig: BookRig): void => {
@@ -309,12 +312,8 @@ const bookMat = (opts: THREE.MeshStandardMaterialParameters): THREE.MeshStandard
 /** Faces : +X couverture, -X dos (titre + résumé), +Y tête, -Y pied, +Z tranche, -Z gouttière. */
 export const makeBookRig = (b: Book, aniso: number): BookRig => {
   const edge = new THREE.Color(b.color).multiplyScalar(0.92);
-  const front = bookMat({
-    map: coverTexture(b.title, b.color, aniso, b.cover, b.author, 1, b.kind),
-  });
-  const back = bookMat({
-    map: backCoverTexture(b.title, b.color, aniso, b.summary, b.author, b.publisher, b.year),
-  });
+  const front = bookMat({ color: b.color });
+  const back = bookMat({ color: b.color });
   const edgeColor = bookMat({ color: edge });
   const pages = bookMat({ color: 0xf3ead6, roughness: 1, envMapIntensity: 0.3 });
   const spine = bookMat({ map: spineTexture(b.title, b.color, aniso, b.t, b.h, b.spineColor) });
@@ -337,17 +336,32 @@ export const makeBookRig = (b: Book, aniso: number): BookRig => {
     quat: new THREE.Quaternion(),
     r: null,
     flat: false,
+    faces: { cover: false, back: false },
   };
+};
+
+/** Dessine la couverture si elle ne l'est pas encore (livre couché, voisin du livre sorti…). */
+export const ensureCover = (rig: BookRig, b: Book, aniso: number): void => {
+  if (rig.faces.cover) return;
+  const front = rig.mesh.material[0]!;
+  rig.faces.cover = true;
+  front.color.set(0xffffff);
+  front.map = coverTexture(b.title, b.color, aniso, b.cover, b.author, 1, b.kind);
+  front.needsUpdate = true;
 };
 
 /** Titre, couleur, résumé ou métadonnées modifiés : régénère couverture, dos et tranche. */
 export const updateBookTextures = (rig: BookRig, b: Book, aniso: number): void => {
   const [front, back, , edgeColor, spine] = rig.mesh.material;
-  front!.map?.dispose();
-  front!.map = coverTexture(b.title, b.color, aniso, b.cover, b.author, 1, b.kind);
+  if (rig.faces.cover) {
+    front!.map?.dispose();
+    front!.map = coverTexture(b.title, b.color, aniso, b.cover, b.author, 1, b.kind);
+  } else front!.color.set(b.color);
   front!.needsUpdate = true;
-  back!.map?.dispose();
-  back!.map = backCoverTexture(b.title, b.color, aniso, b.summary, b.author, b.publisher, b.year);
+  if (rig.faces.back) {
+    back!.map?.dispose();
+    back!.map = backCoverTexture(b.title, b.color, aniso, b.summary, b.author, b.publisher, b.year);
+  } else back!.color.set(b.color);
   back!.needsUpdate = true;
   spine!.map?.dispose();
   spine!.map = spineTexture(b.title, b.color, aniso, b.t, b.h, b.spineColor);
@@ -360,6 +374,9 @@ export const updateBookTextures = (rig: BookRig, b: Book, aniso: number): void =
  * l'écran et dont le texte doit rester net, ×1 une fois rangé (200 livres en mémoire graphique). */
 export const setBookResolution = (rig: BookRig, b: Book, aniso: number, scale: number): void => {
   const [front, back] = rig.mesh.material;
+  rig.faces = { cover: true, back: true };
+  front!.color.set(0xffffff);
+  back!.color.set(0xffffff);
   front!.map?.dispose();
   front!.map = coverTexture(b.title, b.color, aniso, b.cover, b.author, scale, b.kind);
   front!.needsUpdate = true;

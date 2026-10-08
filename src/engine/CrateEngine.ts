@@ -21,6 +21,7 @@ import {
   bookQuat,
   crateFrame,
   disposeBookRig,
+  ensureCover,
   makeBookRig,
   newFillState,
   placeInCrate,
@@ -33,7 +34,7 @@ import { buildCrate, forgetCrateLabel, setCrateLabel, uprightLabel, type CrateRi
 import { buildRotateGizmo, type RotateGizmo } from './rotateGizmo';
 import { buildGrid, buildWorldAxes, type WorldAxes } from './worldAxes';
 import { disposeGroup } from './materials';
-import { loadMesange } from './decor';
+import { loadMesange, type Mesange } from './mesange';
 import { buildMoveGizmo, type MoveGizmo } from './moveGizmo';
 import {
   AXES,
@@ -90,6 +91,10 @@ const stackJitter = (id: string): { dr: number; df: number; yaw: number } => {
   };
   return { dr: next() * 0.08, df: next() * 0.05, yaw: next() * 0.05 };
 };
+
+/** Caisse sur laquelle se perche la mésange, et retrait de son centre par rapport aux bords du dessus. */
+const MESANGE_PERCH = 'P5';
+const MESANGE_MARGIN = 0.4;
 
 /** Apparition des livres au chargement : nombre de livres par vague et délai entre deux vagues. */
 const REVEAL_BATCH = 12;
@@ -279,9 +284,9 @@ export class CrateEngine {
     this.tick();
     void loadMesange().then((bird) => {
       if (!bird) return;
-      if (this.disposed) return disposeGroup(bird);
+      if (this.disposed) return disposeGroup(bird.group);
       this.mesange = bird;
-      this.scene.add(bird);
+      this.scene.add(bird.group);
       this.placeDecor();
     });
     void this.hydrate();
@@ -318,7 +323,7 @@ export class CrateEngine {
     for (const l of this.listeners) l();
   }
 
-  private mesange: THREE.Group | null = null;
+  private mesange: Mesange | null = null;
   private syncTimer = 0;
   /** Numéro du dernier chargement : une apparition progressive s'arrête si un autre chargement démarre. */
   private loadId = 0;
@@ -433,20 +438,20 @@ export class CrateEngine {
     this.emit();
   }
 
-  /** La mésange se pose sur le dessus de la caisse la plus haute (à gauche en cas d'égalité) et la suit si on la déplace. */
+  /** La mésange est perchée sur le coin avant droit de la caisse `MESANGE_PERCH` et la suit si on la déplace. */
   private placeDecor(): void {
     if (!this.mesange) return;
-    let best: Crate | null = null;
-    let bestTop = -Infinity;
-    for (const c of this.crates) {
-      const top = c.y + extents(c, 0).fy;
-      if (top > bestTop + 1e-6 || (Math.abs(top - bestTop) <= 1e-6 && best && c.x < best.x)) {
-        best = c;
-        bestTop = top;
-      }
-    }
-    this.mesange.visible = !!best;
-    if (best) this.mesange.position.set(best.x, bestTop, best.z);
+    const labels = crateLabels(this.crates);
+    const perch = this.crates.find((c) => labels.get(c.id) === MESANGE_PERCH);
+    this.mesange.group.visible = !!perch;
+    if (!perch) return;
+    // coin avant droit du dessus (le plus proche de l'observateur : la vue est de face, vers +Z)
+    const { fx, fy, fz } = extents(perch, 0);
+    this.mesange.group.position.set(
+      perch.x + fx / 2 - MESANGE_MARGIN,
+      perch.y + fy,
+      perch.z + fz / 2 - MESANGE_MARGIN,
+    );
   }
 
   // ---------- historique ----------
@@ -675,6 +680,8 @@ export class CrateEngine {
     for (const id of next) {
       const rig = id && this.bookRigs.get(id);
       if (!rig || this.isPortrait()) continue;
+      const nb = this.books.find((k) => k.id === id);
+      if (nb) ensureCover(rig, nb, this.aniso);
       rig.mesh.layers.set(1);
       rig.mesh.castShadow = false;
     }
@@ -836,8 +843,8 @@ export class CrateEngine {
   dispose(): void {
     this.disposed = true;
     if (this.mesange) {
-      this.scene.remove(this.mesange);
-      disposeGroup(this.mesange);
+      this.scene.remove(this.mesange.group);
+      disposeGroup(this.mesange.group);
     }
     cancelAnimationFrame(this.raf);
     window.clearTimeout(this.texTimer);
@@ -995,6 +1002,7 @@ export class CrateEngine {
     let full = 0;
     const toPile = (b: Book, rig: BookRig): void => {
       loose++;
+      ensureCover(rig, b, this.aniso); // la pile « à côté » est couchée, couverture dessus
       rig.target.set(
         bb.maxX + 1.2 + (Math.random() - 0.5) * 0.1,
         pileY + b.t / 2,
@@ -1037,6 +1045,7 @@ export class CrateEngine {
         this.counts.set(cid, (this.counts.get(cid) ?? 0) + 1);
         br.r = ru[0];
         setSpineFlat(br, fr.mode === 'flat');
+        if (fr.mode === 'flat') ensureCover(br, b, this.aniso); // couché, la couverture est dessus
         if (held(b)) continue; // livre en main ou sorti : garde sa place, suit la souris / la caméra
         // au ras de l'ouverture ; un livre plus profond que la caisse est calé au fond et dépasse devant.
         // À plat, la pile se cale sur son livre le plus profond et les autres y sont centrés.
@@ -1460,6 +1469,7 @@ export class CrateEngine {
     const dt = Math.min(this.timer.getDelta(), 0.05);
     const k = 1 - Math.exp(-dt * 7);
     this.updateShowcase();
+    this.mesange?.update(dt, this.timer.getElapsed());
     for (const rig of this.bookRigs.values()) {
       this._tv.copy(rig.target);
       if (rig === this.hovered && rig.id !== this.openId) this._tv.y += 0.15;

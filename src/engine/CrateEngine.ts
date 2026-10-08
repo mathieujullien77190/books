@@ -769,6 +769,7 @@ export class CrateEngine {
     if (!el) return;
     if (!bird?.visible || this.openId) {
       el.style.opacity = '0';
+      el.style.visibility = 'hidden'; // le lien qu'elle contient ne doit plus être cliquable
       return;
     }
     // la tête est le haut de l'oiseau perché : sommet de sa boîte englobante, légèrement en dessous
@@ -779,7 +780,9 @@ export class CrateEngine {
     const w = this.canvas.clientWidth;
     const h = this.canvas.clientHeight;
     el.style.transform = `translate(${((p.x + 1) / 2) * w}px, ${((1 - p.y) / 2) * h}px)`;
-    el.style.opacity = p.z < 1 ? '1' : '0';
+    const shown = p.z < 1;
+    el.style.opacity = shown ? '1' : '0';
+    el.style.visibility = shown ? 'visible' : 'hidden';
   }
 
   // ---------- scène ----------

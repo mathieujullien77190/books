@@ -17,8 +17,16 @@ export const BackgroundLayout = ({ engine, snap, labels, openBook, lock }: Layou
         ref={birdLabel}
         className="pointer-events-none fixed top-0 left-0 z-10 opacity-0 transition-opacity"
       >
-        <span className="absolute bottom-1 left-1 flex w-max items-center gap-1.5 font-mono text-[11px] font-bold tracking-widest text-ink uppercase select-none">
+        <span className="absolute bottom-1 left-1 flex w-max flex-col items-start gap-1 font-mono text-[11px] font-bold tracking-widest text-ink uppercase select-none">
           mésange charbonnière
+          <a
+            href="/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="pointer-events-auto text-accent underline underline-offset-2 hover:text-ink"
+          >
+            voir l’application en vrai ↗
+          </a>
         </span>
       </div>
       <p className="pointer-events-none fixed right-0 bottom-3 left-0 z-10 m-0 hidden text-center font-mono text-[11px] font-bold tracking-widest text-ink uppercase select-none md:block">

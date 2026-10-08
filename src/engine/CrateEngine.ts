@@ -1,8 +1,6 @@
 import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
-import { PAD, SCENE_BG, SIZES } from '@/constants';
+import { PAD, SIZES } from '@/constants';
 import { crateDims, crateLabels, uid } from '@/helpers';
 import type {
   Book,
@@ -21,7 +19,6 @@ import {
   ensureCover,
   makeBookRig,
   applyLiteMode,
-  onTextureReady,
   setLiteBooks,
   setBookResolution,
   updateBookTextures,
@@ -42,6 +39,7 @@ import { buildMoveGizmo, type MoveGizmo } from './moveGizmo';
 import { Q_TRANCHE, extents, footprint, overlaps, quatOf, rotatedQuat } from './orientation';
 import { Persistence } from './persistence';
 import { buildRotateGizmo, type RotateGizmo } from './rotateGizmo';
+import { Stage } from './stage';
 import { Showcase, focusCrateView, recenterView } from './view';
 import { buildGrid, buildWorldAxes, type WorldAxes } from './worldAxes';
 
@@ -55,13 +53,8 @@ export type { BookPatch };
  */
 export class CrateEngine {
   private readonly canvas: HTMLCanvasElement;
-  private readonly renderer: THREE.WebGLRenderer;
-  private readonly scene = new THREE.Scene();
-  private readonly camera = new THREE.PerspectiveCamera(42, 1, 0.1, 200);
-  private readonly controls: OrbitControls;
-  private readonly aniso: number;
+  private readonly stage: Stage;
   private readonly timer = new THREE.Timer();
-  private readonly resizeObserver: ResizeObserver;
 
   private readonly crateRigs = new Map<Id, CrateRig>();
   private readonly hitboxes: THREE.Mesh[] = [];
@@ -95,7 +88,6 @@ export class CrateEngine {
   private liteChoice = false;
   /** Numéro de la montée en mode complet en cours (0 = aucune) ; sert à l'interrompre. */
   private upgradeRun = 0;
-  private sun!: THREE.DirectionalLight;
   private readonly persistence = new Persistence({
     isDisposed: () => this.disposed,
     getState: () => ({ crates: this.crates, books: this.books, decor: this.decor.state }),
@@ -126,21 +118,7 @@ export class CrateEngine {
   private readonly grid: THREE.GridHelper;
   private mode: Mode = 'view';
   private texTimer = 0;
-  /**
-   * Rendu à la demande : l'image n'est redessinée que si quelque chose a changé (caméra, livre en
-   * mouvement, état, couverture chargée, événement souris/clavier) ou, pour la mésange, une image sur
-   * deux environ. Une scène immobile ne coûte plus de GPU.
-   */
-  private dirty = true;
-  /** Les ombres (statiques) ne sont recalculées que si la scène a changé, pas pour la seule mésange. */
-  private shadowDirty = true;
   private lastBirdFrame = 0;
-  private readonly stopTextureWatch: () => void;
-  private touch(): void {
-    this.dirty = true;
-    this.shadowDirty = true;
-  }
-  private readonly invalidate = (): void => this.touch();
   /** Premier rendu déjà fait derrière l'indicateur de chargement. */
   private warmed = false;
   private raf = 0;
@@ -171,80 +149,26 @@ export class CrateEngine {
     }
     // le léger s'affiche d'abord (chargement rapide) ; le complet suit une fois la scène montrée, sauf choix léger
     setLiteBooks(true);
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: transparent });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.autoUpdate = false; // recalculées à la demande (voir `shadowDirty`)
-    renderer.shadowMap.type = THREE.PCFShadowMap;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.0;
-    renderer.autoClear = false;
-    this.renderer = renderer;
-    this.aniso = renderer.capabilities.getMaxAnisotropy();
-    this.missing = new MissingPile(this.aniso);
-
-    this.scene.background = transparent ? null : new THREE.Color(SCENE_BG);
-    const pmrem = new THREE.PMREMGenerator(renderer);
-    this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-    pmrem.dispose();
-
-    const controls = new OrbitControls(this.camera, canvas);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.08;
-    controls.maxPolarAngle = Math.PI - 0.05; // peut descendre sous sa cible ; le sol est géré dans tick()
-    controls.minDistance = 1;
-    controls.maxDistance = 60;
-    controls.zoomToCursor = true; // la molette zoome vers le point sous le curseur, pas vers le centre de la vue
-    // souris : molette enfoncée = tourner autour de la bibliothèque, clic droit = déplacer la vue, molette =
-    // zoomer ; le clic gauche reste réservé aux caisses et aux livres. Tactile : un doigt déplace, deux
-    // doigts zooment (pas de rotation).
-    controls.mouseButtons = { LEFT: null, MIDDLE: THREE.MOUSE.ROTATE, RIGHT: THREE.MOUSE.PAN };
-    controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_PAN };
-    this.controls = controls;
-    controls.addEventListener('change', this.invalidate);
-    this.stopTextureWatch = onTextureReady(this.invalidate);
-    for (const type of ['pointermove', 'pointerdown', 'pointerup', 'wheel'])
-      canvas.addEventListener(type, this.invalidate, { passive: true });
-    window.addEventListener('keydown', this.invalidate);
-
-    // couche 1 : livre sorti, rendu par-dessus la scène
-    const hemi = new THREE.HemisphereLight(0xffffff, 0x8fa3b5, 0.35);
-    hemi.layers.enable(1);
-    this.scene.add(hemi);
-    const sun = new THREE.DirectionalLight(0xfff1dc, 2.4);
-    sun.layers.enable(1);
-    sun.position.set(10, 16, 8);
-    sun.castShadow = !this.lite;
-    this.sun = sun;
-    sun.shadow.mapSize.set(2048, 2048);
-    sun.shadow.camera.left = -18;
-    sun.shadow.camera.right = 18;
-    sun.shadow.camera.top = 18;
-    sun.shadow.camera.bottom = -18;
-    sun.shadow.camera.near = 1;
-    sun.shadow.camera.far = 50;
-    sun.shadow.bias = -0.0005;
-    this.scene.add(sun);
-    this.scene.add(this.buildGround());
-    this.scene.add(this.booksGroup);
-    this.scene.add(this.missing.group);
+    const stage = new Stage(canvas, transparent);
+    this.stage = stage;
+    this.missing = new MissingPile(stage.aniso);
+    stage.scene.add(this.booksGroup);
+    this.stage.scene.add(this.missing.group);
     this.axes = buildWorldAxes();
     this.grid = buildGrid();
     this.grid.visible = this.mode === 'edit';
     this.axes.group.visible = this.mode === 'edit';
-    this.scene.add(this.grid, this.axes.group);
+    this.stage.scene.add(this.grid, this.axes.group);
     this.rotGizmo = buildRotateGizmo();
     this.moveGizmo = buildMoveGizmo();
-    this.scene.add(this.rotGizmo.group, this.moveGizmo.group, this.decor.gizmo.group);
+    this.stage.scene.add(this.rotGizmo.group, this.moveGizmo.group, this.decor.gizmo.group);
 
     this.snapshot = this.makeSnapshot();
-    this.resizeObserver = new ResizeObserver(() => this.resize());
-    this.resizeObserver.observe(canvas.parentElement ?? canvas);
-    this.resize();
+    stage.resize();
     this.input = new PointerInput({
       canvas,
-      camera: this.camera,
-      controls,
+      camera: stage.camera,
+      controls: stage.controls,
       hitboxes: this.hitboxes,
       rotGizmo: this.rotGizmo,
       moveGizmo: this.moveGizmo,
@@ -291,7 +215,7 @@ export class CrateEngine {
       if (!bird) return;
       if (this.disposed) return disposeGroup(bird.group);
       this.decor.setBird(bird);
-      this.scene.add(bird.group);
+      this.stage.scene.add(bird.group);
       this.placeDecor();
     });
     void this.persistence.hydrate();
@@ -335,7 +259,7 @@ export class CrateEngine {
   }
 
   private emit(): void {
-    this.touch();
+    this.stage.touch();
     this.snapshot = this.makeSnapshot();
     for (const l of this.listeners) l();
   }
@@ -360,11 +284,11 @@ export class CrateEngine {
   private applyMode(on: boolean): void {
     this.lite = on;
     setLiteBooks(on);
-    this.sun.castShadow = !on && !this.transparent;
+    this.stage.sun.castShadow = !on && !this.transparent;
     for (const rig of this.crateRigs.values()) rig.group.visible = !on;
     for (const [id, rig] of this.bookRigs) {
       const b = this.books.find((x) => x.id === id);
-      if (b) applyLiteMode(rig, b, this.aniso);
+      if (b) applyLiteMode(rig, b, this.stage.aniso);
     }
     this.finishMode();
   }
@@ -375,7 +299,7 @@ export class CrateEngine {
     this.refresh();
     const open = this.openId ? this.books.find((b) => b.id === this.openId) : undefined;
     const openRig = open && this.bookRigs.get(open.id);
-    if (open && openRig) setBookResolution(openRig, open, this.aniso, OPEN_BOOK_SCALE);
+    if (open && openRig) setBookResolution(openRig, open, this.stage.aniso, OPEN_BOOK_SCALE);
   }
 
   /**
@@ -392,16 +316,16 @@ export class CrateEngine {
       for (const id of queue.splice(0, 12)) {
         const rig = this.bookRigs.get(id);
         const b = this.books.find((x) => x.id === id);
-        if (rig && b) applyLiteMode(rig, b, this.aniso);
+        if (rig && b) applyLiteMode(rig, b, this.stage.aniso);
       }
-      this.touch();
+      this.stage.touch();
       if (queue.length) {
         window.setTimeout(step, 16);
         return;
       }
       this.upgradeRun = 0;
       this.lite = false;
-      this.sun.castShadow = !this.transparent;
+      this.stage.sun.castShadow = !this.transparent;
       for (const rig of this.crateRigs.values()) rig.group.visible = true;
       this.finishMode();
     };
@@ -418,18 +342,14 @@ export class CrateEngine {
     // premier chargement : compilation des shaders et envoi des textures au GPU pendant que
     // l'indicateur est encore affiché, sinon la scène reste vide plusieurs secondes une fois retiré
     this.warmed = true;
-    void this.renderer
-      .compileAsync(this.scene, this.camera)
-      .catch(() => undefined)
-      .then(() => {
-        if (this.disposed) return;
-        this.renderer.shadowMap.needsUpdate = true;
-        this.renderer.render(this.scene, this.camera);
-        this.renderer.getContext().finish();
+    this.stage.warmUp(
+      () => this.disposed,
+      () => {
         this.loading = false;
         this.emit();
         this.upgradeToFull();
-      });
+      },
+    );
   }
 
   /** Recharge l'état depuis la base (modifiée ailleurs : Claude, un script…). */
@@ -494,7 +414,7 @@ export class CrateEngine {
     }
     for (const b of this.books) {
       const rig = this.bookRigs.get(b.id);
-      if (rig) updateBookTextures(rig, b, this.aniso);
+      if (rig) updateBookTextures(rig, b, this.stage.aniso);
     }
     if (this.selectedId && !this.crates.some((c) => c.id === this.selectedId))
       this.selectedId = null;
@@ -618,8 +538,8 @@ export class CrateEngine {
       this.texTimer = window.setTimeout(() => {
         const rig = this.bookRigs.get(id);
         if (!rig) return;
-        updateBookTextures(rig, b, this.aniso);
-        if (this.openId === id) setBookResolution(rig, b, this.aniso, OPEN_BOOK_SCALE);
+        updateBookTextures(rig, b, this.stage.aniso);
+        if (this.openId === id) setBookResolution(rig, b, this.stage.aniso, OPEN_BOOK_SCALE);
       }, 250);
     }
     this.dataDirty = true;
@@ -636,7 +556,7 @@ export class CrateEngine {
     rig.mesh.layers.set(1);
     rig.mesh.castShadow = false;
     const book = this.books.find((b) => b.id === id);
-    if (book) setBookResolution(rig, book, this.aniso, OPEN_BOOK_SCALE);
+    if (book) setBookResolution(rig, book, this.stage.aniso, OPEN_BOOK_SCALE);
     this.refresh();
   }
 
@@ -662,7 +582,7 @@ export class CrateEngine {
       const rig = id && this.bookRigs.get(id);
       if (!rig || this.isPortrait()) continue;
       const nb = this.books.find((k) => k.id === id);
-      if (nb) ensureCover(rig, nb, this.aniso, true);
+      if (nb) ensureCover(rig, nb, this.stage.aniso, true);
       rig.mesh.layers.set(1);
       rig.mesh.castShadow = false;
     }
@@ -682,7 +602,7 @@ export class CrateEngine {
       rig.mesh.layers.set(0);
       rig.mesh.castShadow = true;
       const book = this.books.find((b) => b.id === this.openId);
-      if (book) setBookResolution(rig, book, this.aniso, 1);
+      if (book) setBookResolution(rig, book, this.stage.aniso, 1);
     }
     this.openId = null;
     this.hintId = null;
@@ -700,7 +620,7 @@ export class CrateEngine {
 
   /** Écran en portrait (téléphone) : un seul livre est présenté, sans voisins. */
   private isPortrait(): boolean {
-    return this.camera.aspect < 1;
+    return this.stage.camera.aspect < 1;
   }
 
   /** Passe au livre précédent (-1) ou suivant (1) : voisins de la caisse ou résultats de la recherche. */
@@ -727,7 +647,7 @@ export class CrateEngine {
     ex.rig.mesh.layers.set(0);
     ex.rig.mesh.castShadow = true;
     const book = this.books.find((b) => b.id === ex.rig.id);
-    if (book) setBookResolution(ex.rig, book, this.aniso, 1);
+    if (book) setBookResolution(ex.rig, book, this.stage.aniso, 1);
     this.layoutBooks();
     ex.rig.mesh.position.copy(ex.rig.target);
     ex.rig.mesh.quaternion.copy(ex.rig.quat);
@@ -812,12 +732,12 @@ export class CrateEngine {
     const c = this.crate(id);
     const rig = c && this.crateRigs.get(id);
     if (!c || !rig) return;
-    focusCrateView(this.camera, this.controls.target, c, rig);
+    focusCrateView(this.stage.camera, this.stage.controls.target, c, rig);
   }
 
   // ---------- API publique : vue ----------
   recenter(): void {
-    recenterView(this.camera, this.controls.target, this.bounds());
+    recenterView(this.stage.camera, this.stage.controls.target, this.bounds());
   }
 
   /** Élément HTML de l'infobulle (titre du livre survolé), positionné par le moteur. */
@@ -832,14 +752,9 @@ export class CrateEngine {
 
   dispose(): void {
     this.disposed = true;
-    this.decor.disposeBird(this.scene);
+    this.decor.disposeBird(this.stage.scene);
     cancelAnimationFrame(this.raf);
     window.clearTimeout(this.texTimer);
-    this.stopTextureWatch();
-    for (const type of ['pointermove', 'pointerdown', 'pointerup', 'wheel'])
-      this.canvas.removeEventListener(type, this.invalidate);
-    window.removeEventListener('keydown', this.invalidate);
-    this.resizeObserver.disconnect();
     this.input.detach();
     for (const id of [...this.crateRigs.keys()]) this.removeCrateRig(id);
     for (const rig of this.bookRigs.values()) disposeBookRig(rig);
@@ -848,9 +763,8 @@ export class CrateEngine {
     disposeGroup(this.moveGizmo.group);
     this.missing.dispose();
     disposeGroup(this.decor.gizmo.group);
-    this.scene.remove(this.rotGizmo.group, this.moveGizmo.group, this.decor.gizmo.group);
-    this.controls.dispose();
-    this.renderer.dispose();
+    this.stage.scene.remove(this.rotGizmo.group, this.moveGizmo.group, this.decor.gizmo.group);
+    this.stage.dispose();
   }
 
   // ---------- état ----------
@@ -872,7 +786,7 @@ export class CrateEngine {
     const box = this._box.setFromObject(bird);
     const p = box.getCenter(this._tv);
     p.y = box.max.y - (box.max.y - box.min.y) * 0.08;
-    p.project(this.camera);
+    p.project(this.stage.camera);
     const w = this.canvas.clientWidth;
     const h = this.canvas.clientHeight;
     el.style.transform = `translate(${((p.x + 1) / 2) * w}px, ${((1 - p.y) / 2) * h}px)`;
@@ -882,29 +796,6 @@ export class CrateEngine {
   }
 
   // ---------- scène ----------
-  /** Sol plat, uni. */
-  private buildGround(): THREE.Mesh {
-    const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(100, 100),
-      this.transparent
-        ? new THREE.ShadowMaterial({ opacity: 0.25 })
-        : new THREE.MeshStandardMaterial({ color: 0xa9c29a, roughness: 1, envMapIntensity: 0.3 }),
-    );
-    ground.rotation.x = -Math.PI / 2;
-    ground.receiveShadow = true;
-    return ground;
-  }
-
-  private resize(): void {
-    const host = this.canvas.parentElement ?? this.canvas;
-    const w = Math.max(1, host.clientWidth);
-    const h = Math.max(1, host.clientHeight);
-    this.touch();
-    this.renderer.setSize(w, h, false);
-    this.camera.aspect = w / h;
-    this.camera.updateProjectionMatrix();
-  }
-
   private ensureCrateRig(c: Crate): CrateRig {
     let rig = this.crateRigs.get(c.id);
     const dims = crateDims(c);
@@ -916,7 +807,7 @@ export class CrateEngine {
     if (!rig) {
       rig = buildCrate(c.id, c.size, dims);
       rig.group.visible = !this.lite; // mode léger : les livres seuls, sans caisses
-      this.scene.add(rig.group);
+      this.stage.scene.add(rig.group);
       this.crateRigs.set(c.id, rig);
       this.hitboxes.push(rig.hit);
     }
@@ -928,7 +819,7 @@ export class CrateEngine {
     if (!rig) return;
     forgetCrateLabel(rig);
     disposeGroup(rig.group);
-    this.scene.remove(rig.group);
+    this.stage.scene.remove(rig.group);
     this.crateRigs.delete(id);
     const i = this.hitboxes.indexOf(rig.hit);
     if (i >= 0) this.hitboxes.splice(i, 1);
@@ -989,7 +880,7 @@ export class CrateEngine {
   private bookRig(b: Book): BookRig {
     let rig = this.bookRigs.get(b.id);
     if (!rig) {
-      rig = makeBookRig(b, this.aniso);
+      rig = makeBookRig(b, this.stage.aniso);
       this.booksGroup.add(rig.mesh);
       this.bookRigs.set(b.id, rig);
     }
@@ -1003,7 +894,7 @@ export class CrateEngine {
       books: this.books,
       crateRigs: this.crateRigs,
       bounds: this.bounds(),
-      aniso: this.aniso,
+      aniso: this.stage.aniso,
       mode: this.mode,
       rigOf: (b) => this.bookRig(b),
       isHeld: (b) => this.input.heldBook === b || b.id === this.openId,
@@ -1019,20 +910,20 @@ export class CrateEngine {
     const dt = Math.min(this.timer.getDelta(), 0.05);
     const k = 1 - Math.exp(-dt * 7);
     this.showcase.update(
-      this.camera,
+      this.stage.camera,
       this.openId ? this.bookRigs.get(this.openId) : undefined,
       this.bookRigs,
       this.openBack,
       this.isPortrait(),
       () => this.finishExit(),
     );
-    this.missing.updateCamera(this.camera, this.controls.target, k);
+    this.missing.updateCamera(this.stage.camera, this.stage.controls.target, k);
     this.decor.update(dt, this.timer.getElapsed());
     // la mésange s'anime en continu : une image sur deux environ suffit (jamais si elle est cachée)
     const now = performance.now();
     if (this.decor.group?.visible && now - this.lastBirdFrame > 50) {
       this.lastBirdFrame = now;
-      this.dirty = true; // pas shadowDirty : la mésange seule ne change pas les ombres
+      this.stage.touchFrame(); // pas touch : la mésange seule ne change pas les ombres
     }
     for (const rig of this.bookRigs.values()) {
       this._tv.copy(rig.target);
@@ -1047,38 +938,16 @@ export class CrateEngine {
         1 - Math.abs(rig.mesh.quaternion.dot(rig.quat)) > 1e-9 ||
         Math.abs(rig.mesh.scale.x - s) > 1e-5
       )
-        this.touch();
+        this.stage.touch();
       rig.mesh.position.lerp(this._tv, k);
       rig.mesh.quaternion.slerp(rig.quat, k);
       rig.mesh.scale.setScalar(rig.mesh.scale.x + (s - rig.mesh.scale.x) * k);
     }
     this.input.updateHover();
-    this.controls.update();
-    if (this.camera.position.y < 0.25) this.camera.position.y = 0.25; // jamais sous le sol
+    this.stage.controls.update();
+    if (this.stage.camera.position.y < 0.25) this.stage.camera.position.y = 0.25; // jamais sous le sol
     this.placeBirdLabel();
-    if (!this.dirty) {
-      this.raf = requestAnimationFrame(this.tick);
-      return;
-    }
-    this.dirty = false;
-    this.renderer.shadowMap.needsUpdate = this.shadowDirty;
-    this.shadowDirty = false;
-    this.renderer.clear();
-    this.camera.layers.set(0);
-    this.renderer.render(this.scene, this.camera);
-    if (this.openId) {
-      // seconde passe : le livre sorti par-dessus tout (sans fond ni brouillard, qui forceraient un clear)
-      const bg = this.scene.background;
-      const fog = this.scene.fog;
-      this.scene.background = null;
-      this.scene.fog = null;
-      this.renderer.clearDepth();
-      this.camera.layers.set(1);
-      this.renderer.render(this.scene, this.camera);
-      this.camera.layers.set(0);
-      this.scene.background = bg;
-      this.scene.fog = fog;
-    }
+    this.stage.draw(!!this.openId);
     this.raf = requestAnimationFrame(this.tick);
   };
 }

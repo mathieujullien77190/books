@@ -42,7 +42,7 @@ export type Book = {
   d: number;
   /** Caisse qui contient le livre, ou null pour la pile « à côté ». */
   crate: Id | null;
-  /** Image de couverture : URL (ex. /covers/x.jpg) ou data URL d'une photo chargée. */
+  /** Image de couverture : URL (ex. /covers/x.webp) ou data URL d'une photo chargée. */
   cover?: string;
   author?: string;
   publisher?: string;

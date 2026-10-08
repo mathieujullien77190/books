@@ -74,10 +74,12 @@ export const volumeLabel = (v: Volume): string =>
   `${v.mark}${v.num}${v.last > v.num ? `/${v.last}` : ''}`;
 
 /** Série et numéro d'un livre : champs `series` / `volume` s'ils existent, sinon analyse du titre. */
-export const volumeOf = (b: Book): Volume | null =>
-  b.series && b.volume
-    ? { prefix: b.series, num: b.volume, last: b.volume, mark: 'T' }
-    : parseVolume(b.title);
+export const volumeOf = (b: Book): Volume | null => {
+  if (b.series && b.volume) return { prefix: b.series, num: b.volume, last: b.volume, mark: 'T' };
+  const v = parseVolume(b.title);
+  // un nombre à quatre chiffres est une année (« Roumanie 2016 »), pas un numéro de tome
+  return v && v.last < 1000 ? v : null;
+};
 
 export type MissingVolume = { series: string; label: string; num: number };
 

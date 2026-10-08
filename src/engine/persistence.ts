@@ -24,6 +24,8 @@ export type PersistenceHost = {
   getState: () => PersistedState;
   /** Remplace l'état local par celui de la base (ou la migration), sans l'envoyer en retour. */
   load: (state: SavedState, decor: DecorState) => void;
+  /** La base n'a pas pu être lue (réponse en erreur ou injoignable). */
+  failed: () => void;
   /** Chargement réussi : le moteur recadre la vue (premier chargement) et refait le tas des manquants. */
   loaded: (first: boolean) => void;
   /** Chargement terminé (ou impossible) : l'interface retire l'indicateur. */
@@ -70,7 +72,10 @@ export class Persistence {
         decor?: Partial<DecorState>;
       };
       if (host.isDisposed()) return;
-      if (!data.ok) return host.endLoading();
+      if (!data.ok) {
+        host.failed();
+        return host.endLoading();
+      }
       // l'indicateur de chargement doit être peint avant le gros travail (dessin de toutes les tranches)
       if (first)
         await new Promise<void>((r) =>
@@ -95,6 +100,7 @@ export class Persistence {
       host.endLoading();
     } catch {
       // base injoignable : rien n'est envoyé, pour ne jamais écraser la base avec un état vide
+      host.failed();
       host.endLoading();
     }
   }

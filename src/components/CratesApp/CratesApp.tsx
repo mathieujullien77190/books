@@ -6,6 +6,7 @@ import { useEmbedMode } from '@/components/shared';
 import SearchBar from '@/components/SearchBar';
 import MissingBar from '@/components/ToBuyList/MissingBar';
 import ToBuyList from '@/components/ToBuyList';
+import Button from '@/components/ui/Button';
 import IconButton from '@/components/ui/IconButton';
 import LoadingOverlay from '@/components/ui/LoadingOverlay';
 import Toast from '@/components/ui/Toast';
@@ -80,6 +81,17 @@ export const CratesApp = ({ className = '' }: CratesAppProps) => {
         >
           🎯
         </IconButton>
+      )}
+      {snap.loadError && !snap.loading && (
+        <div
+          role="alert"
+          className="fixed top-1/2 left-1/2 z-40 flex w-[min(360px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-3 rounded-2xl bg-white p-5 text-center shadow-[0_10px_30px_rgba(31,42,55,0.3)]"
+        >
+          <p className="m-0 text-sm">Impossible de lire la bibliothèque (base injoignable).</p>
+          <Button variant="primary" onClick={() => engine?.reload()}>
+            Réessayer
+          </Button>
+        </div>
       )}
       {snap.loading && <LoadingOverlay message="Chargement de la bibliothèque…" bare={bg} />}
       {snap.missingBrowse && (

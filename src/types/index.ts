@@ -87,6 +87,8 @@ export type Snapshot = {
   messy: boolean;
   /** Premier chargement en cours : indicateur affiché, scène pas encore montrée. */
   loading: boolean;
+  /** La base n'a pas pu être lue : l'interface propose de réessayer (rien n'est envoyé en attendant). */
+  loadError: boolean;
   selectedId: Id | null;
   openId: Id | null;
   /** Face visible du livre sorti : couverture ou dos (résumé). */

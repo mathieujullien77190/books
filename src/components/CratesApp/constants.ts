@@ -6,6 +6,7 @@ export const EMPTY_SNAPSHOT: Snapshot = {
   books: [],
   messy: false,
   loading: true,
+  loadError: false,
   selectedId: null,
   openId: null,
   openSide: 'front',

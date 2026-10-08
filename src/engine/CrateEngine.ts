@@ -99,6 +99,7 @@ export class CrateEngine {
   private readonly decor = new Decor();
   /** Vrai jusqu'à la fin du premier chargement : l'interface affiche un indicateur. */
   private loading = true;
+  private loadError = false;
   private readonly persistence = new Persistence({
     isDisposed: () => this.disposed,
     getState: () => ({ crates: this.crates, books: this.books, decor: this.decor.state }),
@@ -107,7 +108,11 @@ export class CrateEngine {
       this.history.clear();
       this.decor.state = decor;
     },
+    failed: () => {
+      this.loadError = true;
+    },
     loaded: (first) => {
+      this.loadError = false;
       if (first) this.recenter();
       this.syncGhosts();
     },
@@ -288,6 +293,7 @@ export class CrateEngine {
       books: this.snapBooks,
       messy: false,
       loading: this.loading,
+      loadError: this.loadError,
       selectedId: this.selectedId,
       openId: this.openId,
       openSide: this.openBack ? 'back' : 'front',

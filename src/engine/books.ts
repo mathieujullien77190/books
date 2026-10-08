@@ -206,18 +206,30 @@ export const coverTexture = (
     if (cached?.complete && cached.naturalWidth) {
       g.drawImage(cached, 0, 0, W, H);
     } else {
-      const img = new Image();
-      if (!cover.startsWith('data:')) img.crossOrigin = 'anonymous';
-      img.onload = () => {
-        coverImages.set(cover, img);
-        g.drawImage(img, 0, 0, W, H);
-        tex.needsUpdate = true;
+      // une image qui échoue (réseau, rafale de requêtes) est redemandée : sans cela le livre restait
+      // sans couverture jusqu'au prochain rechargement
+      const load = (attempt: number): void => {
+        const img = new Image();
+        if (!cover.startsWith('data:')) img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          coverImages.set(cover, img);
+          g.drawImage(img, 0, 0, W, H);
+          tex.needsUpdate = true;
+        };
+        img.onerror = () => {
+          if (attempt < COVER_RETRIES)
+            window.setTimeout(() => load(attempt + 1), 600 * (attempt + 1));
+        };
+        img.src = attempt && !cover.startsWith('data:') ? `${cover}?retry=${attempt}` : cover;
       };
-      img.src = cover;
+      load(0);
     }
   }
   return tex;
 };
+
+/** Nouvelles tentatives d'une couverture qui n'a pas pu se charger. */
+const COVER_RETRIES = 3;
 
 /** Images de couverture déjà chargées : un livre rouvert se redessine sans clignoter. */
 const coverImages = new Map<string, HTMLImageElement>();

@@ -12,7 +12,6 @@ import { History } from './history';
 import { PointerInput } from './input';
 import { layoutBooks } from './layout';
 import { disposeGroup } from './materials';
-import { loadMesange } from './mesange';
 import { RenderLoop } from './loop';
 import { MissingPile } from './missingPile';
 import { LoadState } from './loadState';
@@ -249,13 +248,11 @@ export class CrateEngine {
       updateHover: () => this.input.updateHover(),
     });
     this.loop.start();
-    void loadMesange().then((bird) => {
-      if (!bird) return;
-      if (this.disposed) return disposeGroup(bird.group);
-      this.decor.setBird(bird);
-      this.stage.scene.add(bird.group);
-      this.placeDecor();
-    });
+    this.decor.loadBird(
+      stage.scene,
+      () => this.disposed,
+      () => this.placeDecor(),
+    );
     void this.persistence.hydrate();
   }
 

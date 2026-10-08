@@ -15,7 +15,7 @@ import {
   MESANGE_STEP,
 } from './constants';
 import { disposeGroup } from './materials';
-import type { Mesange } from './mesange';
+import { loadMesange, type Mesange } from './mesange';
 import { buildMoveGizmo, type MoveGizmo } from './moveGizmo';
 import { extents } from './orientation';
 
@@ -32,8 +32,15 @@ export class Decor {
     return this.bird?.group ?? null;
   }
 
-  setBird(bird: Mesange): void {
-    this.bird = bird;
+  /** Charge le modèle de la mésange et l'ajoute à la scène ; `onReady` : il reste à la poser. */
+  loadBird(scene: THREE.Scene, isDisposed: () => boolean, onReady: () => void): void {
+    void loadMesange().then((bird) => {
+      if (!bird) return;
+      if (isDisposed()) return disposeGroup(bird.group);
+      this.bird = bird;
+      scene.add(bird.group);
+      onReady();
+    });
   }
 
   /** La mésange est perchée sur le coin avant droit de la caisse `MESANGE_PERCH` et la suit si on la déplace. */

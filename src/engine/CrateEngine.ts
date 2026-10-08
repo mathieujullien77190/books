@@ -484,7 +484,13 @@ export class CrateEngine {
   /** Reconstruit le tas des tomes manquants quand la liste (ou la position des caisses) change. */
   private syncGhosts(): void {
     if (!this.hydrated) return; // pas pendant le chargement : la liste des livres n'est pas complète
-    const missing = missingVolumes(this.books);
+    // les plus grands livres en bas du tas, les plus petits en haut (puis par série et numéro)
+    const missing = missingVolumes(this.books).sort(
+      (x, y) =>
+        y.template.h - x.template.h ||
+        y.template.d - x.template.d ||
+        x.label.localeCompare(y.label, 'fr', { numeric: true }),
+    );
     const bb = this.bounds();
     const key = `${missing.map((m) => m.label).join('|')}@${bb.minX.toFixed(2)},${bb.cz.toFixed(2)}`;
     if (key === this.ghostKey) return;

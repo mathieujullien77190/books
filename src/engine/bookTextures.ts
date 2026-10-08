@@ -104,8 +104,7 @@ export const spineTexture = (
   return toTexture(c, aniso);
 };
 
-/** Couverture (face +X) : titre centré dans un cadre. */
-/** `cover` : image (URL ou data URL) dessinée par-dessus dès qu'elle est chargée. */
+/** Couverture (face +X) : titre centré dans un cadre ; `cover` (URL ou data URL) est dessinée par-dessus dès qu'elle est chargée. */
 export const coverTexture = (
   title: string,
   color: string,

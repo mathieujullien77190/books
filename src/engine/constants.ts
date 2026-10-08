@@ -3,10 +3,10 @@
  */
 import * as THREE from 'three';
 
-/** Caisse sur laquelle se perche la mésange, et retrait de son centre par rapport aux bords du dessus. */
 /** Clé localStorage du mode léger (livres en pavés de couleur). */
 export const LITE_KEY = 'lite-mode';
 
+/** Caisse sur laquelle se perche la mésange, et retrait de son centre par rapport aux bords du dessus. */
 export const MESANGE_PERCH = 'P5';
 export const MESANGE_MARGIN = 0.2;
 /** Elle s'enfonce un peu dans le dessus de la caisse pour que ses pattes touchent le bois. */

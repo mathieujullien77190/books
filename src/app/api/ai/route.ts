@@ -14,6 +14,9 @@ import {
 } from '@/lib/library';
 import { hasMongoConfig } from '@/lib/mongodb';
 
+/** Durée maximale de la fonction sur Vercel : plusieurs allers-retours avec Claude peuvent dépasser les 10 s par défaut. */
+export const maxDuration = 60;
+
 /** Modèles proposés dans l'onglet IA ; Haiku par défaut (le moins cher, suffisant pour interroger la base). */
 const MODELS: Record<string, string> = {
   haiku: 'claude-haiku-5-5',

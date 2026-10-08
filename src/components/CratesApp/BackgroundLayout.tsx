@@ -1,9 +1,11 @@
 import { useEffect, useRef } from 'react';
 
+import Notepad from '@/components/Notepad';
+
 import { BookPanel } from './BookPanel';
 import type { LayoutProps } from './types';
 
-/** Fond du bureau d'AOC : seule la fiche du livre ouvert s'affiche, à droite, sous les icônes du coin. */
+/** Fond du bureau d'AOC : recherche, Claude et fiche du livre ouvert ; pas de panneau de réglages ni d'Édition. */
 export const BackgroundLayout = ({ engine, snap, labels, openBook, lock }: LayoutProps) => {
   const birdLabel = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -25,6 +27,11 @@ export const BackgroundLayout = ({ engine, snap, labels, openBook, lock }: Layou
         molette enfoncée : tourner · clic droit : déplacer
       </p>
       <div className="pointer-events-none fixed top-[88px] right-4 bottom-[76px] z-10 flex w-[min(340px,calc(100vw-32px))] flex-col gap-3">
+        <Notepad
+          className="shrink-0"
+          onChanged={() => engine?.reload()}
+          onOpenBook={(id) => engine?.openBook(id)}
+        />
         <BookPanel
           engine={engine}
           snap={snap}

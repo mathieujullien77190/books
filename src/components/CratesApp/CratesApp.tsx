@@ -55,15 +55,13 @@ export const CratesApp = ({ className = '' }: CratesAppProps) => {
     <div className={`relative h-dvh w-full overflow-hidden ${className}`}>
       <canvas ref={mountCanvas} className="block h-full w-full touch-none" />
 
-      {!bg && (
-        <SearchBar
-          books={snap.books}
-          labels={labels}
-          onOpen={(id) => engine?.openBook(id)}
-          onRemove={(id) => (lock.locked ? lock.denied() : engine?.removeBook(id))}
-          onShowAll={(ids) => engine?.showBooks(ids)}
-        />
-      )}
+      <SearchBar
+        books={snap.books}
+        labels={labels}
+        onOpen={(id) => engine?.openBook(id)}
+        onRemove={(id) => (lock.locked ? lock.denied() : engine?.removeBook(id))}
+        onShowAll={(ids) => engine?.showBooks(ids)}
+      />
       {bg ? (
         <BackgroundLayout {...layout} />
       ) : phone ? (

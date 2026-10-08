@@ -11,11 +11,27 @@ export type Mesange = {
   update: (dt: number, t: number) => void;
 };
 
+/** Les facettes sombres de la tête (calotte, gorge, bec) ont une légère variation de gris : on les passe en noir franc, seules les joues blanches restent claires. */
+const blackenHead = (bird: THREE.Object3D): void => {
+  bird.getObjectByName('head')?.traverse((o) => {
+    if (!(o instanceof THREE.Mesh)) return;
+    const col = o.geometry.getAttribute('color');
+    if (!col) return;
+    const c = new THREE.Color();
+    for (let i = 0; i < col.count; i++) {
+      c.setRGB(col.getX(i), col.getY(i), col.getZ(i));
+      if (0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b < 0.5) col.setXYZ(i, 0, 0, 0);
+    }
+    col.needsUpdate = true;
+  });
+};
+
 /** Charge la mésange charbonnière (low poly, animée) ; null si le fichier est introuvable (la scène marche sans). */
 export const loadMesange = async (): Promise<Mesange | null> => {
   try {
     const gltf = await new GLTFLoader().loadAsync(MESANGE_URL);
     const bird = gltf.scene;
+    blackenHead(bird);
     bird.traverse((o) => {
       if (o instanceof THREE.Mesh) {
         o.castShadow = true;

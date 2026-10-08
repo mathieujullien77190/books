@@ -43,7 +43,7 @@ import { buildCrate, forgetCrateLabel, setCrateLabel, uprightLabel, type CrateRi
 import { buildRotateGizmo, type RotateGizmo } from './rotateGizmo';
 import { buildGrid, buildWorldAxes, type WorldAxes } from './worldAxes';
 import { disposeGroup } from './materials';
-import { GHOST_T, buildGhost } from './ghosts';
+import { buildGhostBook } from './ghosts';
 import { loadMesange, type Mesange } from './mesange';
 import { buildMoveGizmo, type MoveGizmo } from './moveGizmo';
 import {
@@ -421,6 +421,7 @@ export class CrateEngine {
       this.hydrated = true;
       if (data.crates?.length || (await this.push())) clearLegacyState();
       if (first) this.recenter();
+      this.syncGhosts();
       this.emit();
     } catch {
       // base injoignable : rien n'est envoyé, pour ne jamais écraser la base avec un état vide
@@ -495,6 +496,7 @@ export class CrateEngine {
 
   /** Reconstruit le tas des tomes manquants quand la liste (ou la position des caisses) change. */
   private syncGhosts(): void {
+    if (!this.hydrated) return; // pas pendant le chargement : la liste des livres n'est pas complète
     const missing = missingVolumes(this.books);
     const bb = this.bounds();
     const key = `${missing.map((m) => m.label).join('|')}@${bb.minX.toFixed(2)},${bb.cz.toFixed(2)}`;
@@ -504,16 +506,18 @@ export class CrateEngine {
       this.ghostGroup.remove(g);
       disposeGroup(g);
     }
+    let height = 0;
     missing.forEach((m, i) => {
       const pile = Math.floor(i / GHOST_PILE);
-      const level = i % GHOST_PILE;
-      const ghost = buildGhost(m.label);
-      // léger désordre déterministe : le tas n'est pas parfait
+      if (i % GHOST_PILE === 0) height = 0;
+      const { mesh, t } = buildGhostBook(m, this.aniso);
+      // livre couché sur la tranche vers l'observateur, couverture dessus, léger désordre déterministe
       const jx = Math.sin(i * 12.9898) * 0.06;
       const jz = Math.cos(i * 78.233) * 0.05;
-      ghost.position.set(bb.minX - 1.9 - pile * 2.4 + jx, GHOST_T * (level + 0.5), bb.cz + jz);
-      ghost.rotation.y = Math.sin(i * 4.1) * 0.05;
-      this.ghostGroup.add(ghost);
+      mesh.position.set(bb.minX - 1.9 - pile * 2.4 + jx, height + t / 2, bb.cz + jz);
+      mesh.quaternion.setFromEuler(new THREE.Euler(0, Math.sin(i * 4.1) * 0.12, Math.PI / 2));
+      height += t;
+      this.ghostGroup.add(mesh);
     });
   }
 

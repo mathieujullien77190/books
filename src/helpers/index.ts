@@ -83,13 +83,20 @@ export const volumeOf = (b: Book): Volume | null => {
   return v && v.last < 1000 ? v : null;
 };
 
-export type MissingVolume = { series: string; label: string; num: number };
+/** Un tome manquant ; `template` est le livre possédé de la série le plus proche (dimensions, couleurs). */
+export type MissingVolume = { series: string; label: string; num: number; template: Book };
 
 /** Tous les numéros manquants de toutes les séries : de 1 au dernier possédé (ou au total connu). */
 export const missingVolumes = (books: Book[]): MissingVolume[] => {
   const groups = new Map<
     string,
-    { name: string; mark: Volume['mark']; owned: Set<number>; total: number }
+    {
+      name: string;
+      mark: Volume['mark'];
+      owned: Set<number>;
+      total: number;
+      books: { num: number; book: Book }[];
+    }
   >();
   for (const b of books) {
     const v = volumeOf(b);
@@ -100,7 +107,9 @@ export const missingVolumes = (books: Book[]): MissingVolume[] => {
       mark: v.mark,
       owned: new Set<number>(),
       total: 0,
+      books: [],
     };
+    g.books.push({ num: v.num, book: b });
     for (let n = v.num; n <= v.last; n++) g.owned.add(n);
     g.total = Math.max(g.total, b.seriesTotal ?? 0, v.last);
     groups.set(key, g);
@@ -108,6 +117,16 @@ export const missingVolumes = (books: Book[]): MissingVolume[] => {
   const out: MissingVolume[] = [];
   for (const g of [...groups.values()].sort((a, b) => a.name.localeCompare(b.name)))
     for (let n = 1; n <= g.total; n++)
-      if (!g.owned.has(n)) out.push({ series: g.name, label: `${g.name} ${g.mark}${n}`, num: n });
+      if (!g.owned.has(n)) {
+        const nearest = g.books.reduce((a, b) =>
+          Math.abs(b.num - n) < Math.abs(a.num - n) ? b : a,
+        );
+        out.push({
+          series: g.name,
+          label: `${g.name} ${g.mark}${n}`,
+          num: n,
+          template: nearest.book,
+        });
+      }
   return out;
 };

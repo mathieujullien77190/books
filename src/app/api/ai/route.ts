@@ -255,6 +255,8 @@ const runTool = async (
       })) as { ok?: boolean; deleted?: string; was_in?: string };
       return { result: r, action: r.ok ? `Supprimé « ${r.deleted} » (${r.was_in})` : undefined };
     }
+    // inatteignable : runTool n'est appelé que pour les noms déjà filtrés par `allowed`
+    /* v8 ignore next 2 */
     default:
       return { result: { error: `Outil inconnu : ${name}` } };
   }

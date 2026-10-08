@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-import { GAP, OUTLINE_PAD, PLANK as T, POST, SLAT } from '@/constants';
+import { GAP, OUTLINE_PAD, PLANK as T, SLAT } from '@/constants';
 import type { CrateSize, Dims, Id } from '@/types';
 
 import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
@@ -18,7 +18,7 @@ export type CrateRig = {
   label: THREE.Group;
   /** Numéro en relief sur la plaque (null tant que la police n'est pas chargée). */
   text: THREE.Mesh | null;
-  /** Demi-dimensions de la zone libre du fond (entre les montants d'angle). */
+  /** Demi-dimensions de la zone libre du fond (à l'intérieur des parois). */
   inner: { hx: number; hy: number };
   /** Caisse transparente : son volume et ses arêtes, masquables (mode bibliothèque, caisse vide). */
   shell: THREE.Object3D[];
@@ -96,7 +96,7 @@ export const buildCrate = (id: Id, size: CrateSize, dims: Dims): CrateRig => {
         plank(w - 2 * T, bh, T, 0, -h / 2 + T + bh / 2 + i * (bh + 0.04), -d / 2 + T / 2);
     }
     // tour (haut, bas, côtés) : planches en anneaux autour de la caisse, empilées du fond vers
-    // l'ouverture, perpendiculaires aux montants d'angle — comme une vraie caisse à claire-voie
+    // l'ouverture, comme une vraie caisse à claire-voie
     {
       const span = d - T;
       const n = Math.max(2, Math.round(span / (SLAT + GAP)));
@@ -109,10 +109,6 @@ export const buildCrate = (id: Id, size: CrateSize, dims: Dims): CrateRig => {
         plank(T, h - 2 * T, sw, -w / 2 + T / 2, 0, z);
       }
     }
-    // montants d'angle intérieurs, le long de Z
-    for (const sx of [-1, 1])
-      for (const sy of [-1, 1])
-        plank(POST, POST, d - T, sx * (w / 2 - T - POST / 2), sy * (h / 2 - T - POST / 2), T / 2);
 
     // ---- armature métal ----
     const mt = 0.04;
@@ -202,7 +198,7 @@ export const buildCrate = (id: Id, size: CrateSize, dims: Dims): CrateRig => {
     label,
     text: null,
     labelText: '',
-    inner: { hx: w / 2 - T - POST, hy: h / 2 - T - POST },
+    inner: { hx: w / 2 - T, hy: h / 2 - T },
     shell,
   };
 };
@@ -278,7 +274,7 @@ const IN_PLANE: { v: THREE.Vector3; rot: number }[] = [
  * Garde le numéro droit : parmi les quatre orientations possibles dans le plan du fond, prend celle
  * dont le « haut » pointe le plus vers le haut du monde ; si le fond est horizontal (caisse debout),
  * vers l'arrière, pour lire le numéro depuis l'avant. Puis le range dans le coin haut-gauche (au sens
- * de la lecture) de la zone libre du fond, entre les montants, pour qu'il ne soit jamais coupé.
+ * de la lecture) de la zone libre du fond, dans la zone libre, pour qu'il ne soit jamais coupé.
  */
 export const uprightLabel = (rig: CrateRig, q: THREE.Quaternion): void => {
   const score = (ref: THREE.Vector3): { rot: number; best: number } => {

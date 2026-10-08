@@ -455,7 +455,7 @@ export const crateFrame = (c: Crate, tallest = MAX_BOOK_H): CrateFrame | null =>
     mode = c.flat || innerU < tallest + 0.05 ? 'flat' : 'stand';
     front = true;
   }
-  // les montants d'angle sont fins : on ne retire que les parois et une petite marge
+  // on ne retire que les parois et une petite marge
   const innerR = ext(R) - 2 * wall - 0.02;
   const innerF = ext(F) - wall;
   return {

@@ -13,7 +13,7 @@ MongoDB ; un assistant Claude peut répondre aux questions sur la collection et 
 - **Recherche** en grand en haut : sans accents, avec une faute de frappe tolérée ; Entrée présente tous les
   résultats devant toi, du premier au dernier.
 - **Édition** : déplacer et tourner les caisses. Protégée par un code vérifié côté serveur.
-- **Claude** : une conversation pour interroger ta bibliothèque, avec ta propre clé API.
+- **Claude** : une conversation pour interroger ta bibliothèque, avec ta propre clé API. Bouton 🎤 pour dicter la question, la réponse reste écrite.
 - **Téléphone** : un seul livre à la fois, au maximum de l'écran, parcouru avec ‹ ›, boutons Biblio et Claude.
 
 ## Installation

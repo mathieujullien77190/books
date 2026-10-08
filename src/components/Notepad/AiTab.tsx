@@ -43,6 +43,27 @@ const writeKey = (key: string): void => {
   }
 };
 
+/** Reconnaissance vocale du navigateur (Chrome, Edge, Safari) : types minimaux, absents de lib.dom. */
+type Recognition = {
+  lang: string;
+  interimResults: boolean;
+  continuous: boolean;
+  onresult:
+    | ((e: {
+        results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal: boolean }>;
+      }) => void)
+    | null;
+  onend: (() => void) | null;
+  onerror: ((e: { error: string }) => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
+const speechCtor = (): (new () => Recognition) | null => {
+  const w = window as unknown as Record<string, new () => Recognition>;
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
+};
+
 const timeOf = (at?: number): string =>
   at ? new Date(at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
 
@@ -54,14 +75,17 @@ export const AiTab = ({ onChanged }: { onChanged?: () => void }) => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const end = useRef<HTMLDivElement>(null);
+  const [listening, setListening] = useState(false);
+  const [canSpeak] = useState(() => typeof window !== 'undefined' && !!speechCtor());
+  const recognition = useRef<Recognition | null>(null);
+  const sendRef = useRef<(q: string) => Promise<void>>(async () => {});
 
   useEffect(() => {
     end.current?.scrollIntoView({ block: 'nearest' });
   }, [turns, busy]);
 
-  const ask = async (e: FormEvent): Promise<void> => {
-    e.preventDefault();
-    const q = question.trim();
+  const send = async (text: string): Promise<void> => {
+    const q = text.trim();
     if (!q || !key.trim() || busy) return;
     const next: AiTurn[] = [...turns, { role: 'user', content: q, at: Date.now() }];
     setTurns(next);
@@ -105,6 +129,53 @@ export const AiTab = ({ onChanged }: { onChanged?: () => void }) => {
       setBusy(false);
     }
   };
+  useEffect(() => {
+    sendRef.current = send;
+  });
+
+  const ask = (e: FormEvent): void => {
+    e.preventDefault();
+    void send(question);
+  };
+
+  /** Dicte la question : le texte s'affiche pendant qu'on parle, puis part tout seul à la fin de la phrase. */
+  const toggleMic = (): void => {
+    if (listening) {
+      recognition.current?.stop();
+      return;
+    }
+    const Ctor = speechCtor();
+    if (!Ctor) return;
+    const rec = new Ctor();
+    rec.lang = 'fr-FR';
+    rec.interimResults = true;
+    rec.continuous = false;
+    let heard = '';
+    rec.onresult = (e) => {
+      heard = Array.from(e.results)
+        .map((r) => r[0]?.transcript ?? '')
+        .join(' ')
+        .trim();
+      setQuestion(heard);
+    };
+    rec.onerror = (e) => {
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed')
+        setError('Micro refusé : autorise-le dans le navigateur.');
+      else if (e.error !== 'no-speech' && e.error !== 'aborted')
+        setError('La dictée n’a pas fonctionné.');
+    };
+    rec.onend = () => {
+      setListening(false);
+      recognition.current = null;
+      if (heard) void sendRef.current(heard);
+    };
+    recognition.current = rec;
+    setError('');
+    setListening(true);
+    rec.start();
+  };
+
+  useEffect(() => () => recognition.current?.stop(), []);
 
   return (
     <div className="border-t border-ink/10 px-3.5 py-2">
@@ -199,14 +270,26 @@ export const AiTab = ({ onChanged }: { onChanged?: () => void }) => {
             }
           }}
         />
-        <Button
-          variant="primary"
-          type="submit"
-          className="self-end"
-          disabled={busy || !key.trim() || !question.trim()}
-        >
-          Envoyer
-        </Button>
+        <div className="flex items-center justify-end gap-1.5">
+          {canSpeak && (
+            <Button
+              type="button"
+              variant={listening ? 'active' : 'default'}
+              aria-label={listening ? 'Arrêter la dictée' : 'Parler à Claude'}
+              disabled={busy || !key.trim()}
+              onClick={toggleMic}
+            >
+              {listening ? '⏹ J’écoute…' : '🎤 Parler'}
+            </Button>
+          )}
+          <Button
+            variant="primary"
+            type="submit"
+            disabled={busy || !key.trim() || !question.trim()}
+          >
+            Envoyer
+          </Button>
+        </div>
       </form>
       {turns.length > 0 && (
         <button

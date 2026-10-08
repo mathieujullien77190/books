@@ -26,12 +26,27 @@ const blackenHead = (bird: THREE.Object3D): void => {
   });
 };
 
+/** La bande du ventre est faite de facettes gris très sombre : noir franc. Seule la pièce du corps est touchée (pas les ailes bleues ni les pattes, dont les nœuds sont ses enfants). */
+const blackenBelly = (bird: THREE.Object3D): void => {
+  const body = bird.getObjectByName('body');
+  if (!(body instanceof THREE.Mesh)) return;
+  const col = body.geometry.getAttribute('color');
+  if (!col) return;
+  const c = new THREE.Color();
+  for (let i = 0; i < col.count; i++) {
+    c.setRGB(col.getX(i), col.getY(i), col.getZ(i));
+    if (0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b < 0.08) col.setXYZ(i, 0, 0, 0);
+  }
+  col.needsUpdate = true;
+};
+
 /** Charge la mésange charbonnière (low poly, animée) ; null si le fichier est introuvable (la scène marche sans). */
 export const loadMesange = async (): Promise<Mesange | null> => {
   try {
     const gltf = await new GLTFLoader().loadAsync(MESANGE_URL);
     const bird = gltf.scene;
     blackenHead(bird);
+    blackenBelly(bird);
     bird.traverse((o) => {
       if (o instanceof THREE.Mesh) {
         o.castShadow = true;

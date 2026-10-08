@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import BookDetail from '@/components/BookDetail';
 import Notepad from '@/components/Notepad';
+import PanPad from '@/components/PanPad';
 import SearchBar from '@/components/SearchBar';
 import SidePanel from '@/components/SidePanel';
 import Button from '@/components/ui/Button';
@@ -209,6 +210,10 @@ export const CratesApp = ({ className = '' }: CratesAppProps) => {
       >
         🎯
       </Button>
+      <PanPad
+        className="fixed right-4 bottom-[72px] z-10"
+        onPan={(dx, dy) => engine?.pan(dx, dy)}
+      />
       {toast && (
         <div
           role="status"

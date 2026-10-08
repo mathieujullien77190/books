@@ -77,7 +77,7 @@ type Bounds = {
   cz: number;
 };
 
-const HOME_DIR = new THREE.Vector3(0.62, 0.45, 0.76).normalize();
+const HOME_DIR = new THREE.Vector3(0, 0.12, 1).normalize(); // vue de face, à peine surélevée
 /** Résolution des textures du livre sorti (1 = celle des livres rangés). */
 const OPEN_BOOK_SCALE = 2;
 /** Taille des livres précédent / suivant présentés à côté du livre sorti. */
@@ -152,6 +152,8 @@ export class CrateEngine {
   private drag: Drag | null = null;
   private dragBook: DragBook | null = null;
   private downEmpty: [number, number] | null = null;
+  /** Caisse sous le pointeur au clic en lecture : un clic simple zoome dessus. */
+  private downCrate: Id | null = null;
   private readonly rotGizmo: RotateGizmo;
   private readonly moveGizmo: MoveGizmo;
   /** États précédents pour « Annuler » (le plus récent en dernier). */
@@ -746,6 +748,18 @@ export class CrateEngine {
   }
 
   // ---------- API publique : vue ----------
+  /** Décale la vue d'un cran vers la droite / le haut de l'écran (dx, dy = -1, 0 ou 1), proportionnel au recul. */
+  pan(dx: number, dy: number): void {
+    const dist = this.camera.position.distanceTo(this.controls.target);
+    const step = dist * 0.02;
+    this.camera.updateMatrixWorld();
+    this._tv.setFromMatrixColumn(this.camera.matrixWorld, 0).multiplyScalar(dx * step);
+    this._fwd.setFromMatrixColumn(this.camera.matrixWorld, 1).multiplyScalar(dy * step);
+    this._tv.add(this._fwd);
+    this.camera.position.add(this._tv);
+    this.controls.target.add(this._tv);
+  }
+
   recenter(): void {
     const bb = this.bounds();
     const extent = Math.max(bb.maxX - bb.minX, bb.maxZ - bb.minZ, bb.maxY * 1.6, 6);
@@ -1065,6 +1079,7 @@ export class CrateEngine {
     const hit = this.raycaster.intersectObjects(this.hitboxes, false)[0];
     if (!hit || this.mode === 'view') {
       this.downEmpty = [e.clientX, e.clientY];
+      this.downCrate = hit ? (hit.object.userData.id as Id) : null;
       return;
     }
     const c = this.crate(hit.object.userData.id as Id);
@@ -1145,6 +1160,7 @@ export class CrateEngine {
     if (d) {
       if (!d.moved) this.selectedId = this.selectedId === d.c.id ? null : d.c.id;
       this.refresh();
+      if (!d.moved && this.selectedId) this.focusCrate(d.c.id);
       try {
         this.canvas.releasePointerCapture(e.pointerId);
       } catch {
@@ -1158,9 +1174,11 @@ export class CrateEngine {
         if (this.openId) this.closeBook(false);
         this.selectedId = null;
         this.refresh();
+        if (this.downCrate) this.focusCrate(this.downCrate); // clic sur une caisse : on zoome dessus
       }
     }
     this.downEmpty = null;
+    this.downCrate = null;
   };
 
   private readonly onPointerLeave = (): void => {

@@ -21,6 +21,9 @@ export const BackgroundLayout = ({ engine, snap, labels, openBook, lock }: Layou
           mésange charbonnière
         </span>
       </div>
+      <p className="pointer-events-none fixed right-0 bottom-3 left-0 z-10 m-0 text-center font-mono text-[11px] font-bold tracking-widest text-ink uppercase select-none">
+        molette enfoncée : tourner · clic droit : déplacer
+      </p>
       <div className="pointer-events-none fixed top-[88px] right-4 bottom-[76px] z-10 flex w-[min(340px,calc(100vw-32px))] flex-col gap-3">
         <BookPanel
           engine={engine}

@@ -125,6 +125,8 @@ export class CrateEngine {
   private readonly grid: THREE.GridHelper;
   private mode: Mode = 'view';
   private texTimer = 0;
+  /** Premier rendu déjà fait derrière l'indicateur de chargement. */
+  private warmed = false;
   private raf = 0;
   private disposed = false;
 
@@ -307,8 +309,24 @@ export class CrateEngine {
 
   /** Chargement terminé (ou impossible) : l'interface retire l'indicateur. */
   private endLoading(): void {
-    this.loading = false;
-    this.emit();
+    if (this.warmed) {
+      this.loading = false;
+      this.emit();
+      return;
+    }
+    // premier chargement : compilation des shaders et envoi des textures au GPU pendant que
+    // l'indicateur est encore affiché, sinon la scène reste vide plusieurs secondes une fois retiré
+    this.warmed = true;
+    void this.renderer
+      .compileAsync(this.scene, this.camera)
+      .catch(() => undefined)
+      .then(() => {
+        if (this.disposed) return;
+        this.renderer.render(this.scene, this.camera);
+        this.renderer.getContext().finish();
+        this.loading = false;
+        this.emit();
+      });
   }
 
   /** Recharge l'état depuis la base (modifiée ailleurs : Claude, un script…). */

@@ -7,6 +7,7 @@ import type { Book, Id } from '@/types';
 
 import { setBookResolution, updateBookTextures, type BookRig } from './books';
 import { OPEN_BOOK_SCALE } from './constants';
+import type { Domain } from './domain';
 
 /** Champs modifiables d'un livre depuis la fiche. */
 export type BookPatch = Partial<
@@ -56,11 +57,10 @@ export const applyBookPatch = (b: Book, patch: BookPatch): boolean => {
 
 /** Ce que l'éditeur de fiche demande au moteur. */
 export type BookEditorHost = {
-  books: () => Book[];
+  domain: Domain;
   rigOf: (id: Id) => BookRig | undefined;
   openId: () => Id | null;
   aniso: number;
-  pushHistory: () => void;
   /** Les données ont changé : le snapshot est à recopier, la base à mettre à jour, l'interface à prévenir. */
   changed: () => void;
 };
@@ -74,11 +74,12 @@ export class BookEditor {
 
   update(id: Id, patch: BookPatch): void {
     const h = this.host;
-    const b = h.books().find((k) => k.id === id);
+    const b = h.domain.books.find((k) => k.id === id);
     if (!b) return;
     // une « session » de saisie sur le même livre = une seule entrée d'historique
     const now = Date.now();
-    if (!this.lastEdit || this.lastEdit.id !== id || now - this.lastEdit.ts > 1500) h.pushHistory();
+    if (!this.lastEdit || this.lastEdit.id !== id || now - this.lastEdit.ts > 1500)
+      h.domain.pushHistory();
     this.lastEdit = { id, ts: now };
     if (applyBookPatch(b, patch)) {
       window.clearTimeout(this.texTimer);

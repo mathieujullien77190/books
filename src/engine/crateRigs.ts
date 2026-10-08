@@ -6,10 +6,11 @@
 import type * as THREE from 'three';
 
 import { crateDims, crateLabels } from '@/helpers';
-import type { Crate, Id, Mode } from '@/types';
+import type { Crate, Id } from '@/types';
 
-import { applyGravity, type Bounds } from './cratePlacement';
+import { applyGravity } from './cratePlacement';
 import { buildCrate, forgetCrateLabel, setCrateLabel, uprightLabel, type CrateRig } from './crate';
+import type { Domain } from './domain';
 import { disposeGroup } from './materials';
 import { buildMoveGizmo, type MoveGizmo } from './moveGizmo';
 import { extents, footprint, overlaps, quatOf } from './orientation';
@@ -18,13 +19,10 @@ import { buildGrid, buildWorldAxes, type WorldAxes } from './worldAxes';
 
 /** Ce que les rigs de caisses demandent au moteur. */
 export type CrateRigsHost = {
-  crates: () => Crate[];
-  selectedId: () => Id | null;
+  domain: Domain;
   openId: () => Id | null;
-  mode: () => Mode;
   /** Mode léger : les livres seuls, sans caisses. */
   lite: () => boolean;
-  bounds: () => Bounds;
 };
 
 export class CrateRigs {
@@ -41,7 +39,7 @@ export class CrateRigs {
     private readonly scene: THREE.Scene,
     private readonly host: CrateRigsHost,
   ) {
-    this.setEditing(host.mode() === 'edit');
+    this.setEditing(host.domain.mode === 'edit');
     scene.add(this.grid, this.axes.group);
     scene.add(this.rotGizmo.group, this.moveGizmo.group);
   }
@@ -56,7 +54,7 @@ export class CrateRigs {
   hint(id: Id | null): void {
     if (this.hintId === id) return;
     this.hintId = id;
-    const selectedId = this.host.selectedId();
+    const { selectedId } = this.host.domain;
     for (const rig of this.rigs.values())
       rig.outline.visible = rig.id === selectedId || rig.id === id;
   }
@@ -93,8 +91,7 @@ export class CrateRigs {
   /** Gravité : chaque caisse repose sur le sol ou sur la plus haute caisse posée avant elle qu'elle chevauche. */
   place(): void {
     const { host } = this;
-    const crates = host.crates();
-    const selectedId = host.selectedId();
+    const { crates, selectedId, mode } = host.domain;
     applyGravity(crates);
     const labels = crateLabels(crates);
     for (const c of crates) {
@@ -108,14 +105,14 @@ export class CrateRigs {
       rig.group.updateMatrixWorld(true);
     }
     // les axes du repère couvrent juste les caisses posées (marge 5 cm), lettre au bout positif
-    const bb = host.bounds();
+    const bb = host.domain.bounds();
     this.axes.setExtent('x', Math.min(bb.minX, 0) - 0.5, Math.max(bb.maxX, 0) + 0.5);
     this.axes.setExtent('z', Math.min(bb.minZ, 0) - 0.5, Math.max(bb.maxZ, 0) + 0.5);
     this.axes.setExtent('y', 0, Math.max(bb.maxY, 1) + 0.5);
     // flèches de rotation autour de la caisse sélectionnée (masquées pendant la lecture d'un livre)
     const sel = selectedId ? crates.find((c) => c.id === selectedId) : undefined;
     const selRig = sel && this.rigs.get(sel.id);
-    this.rotGizmo.group.visible = !!selRig && !host.openId() && host.mode() === 'edit';
+    this.rotGizmo.group.visible = !!selRig && !host.openId() && mode === 'edit';
     this.moveGizmo.group.visible = this.rotGizmo.group.visible;
     if (sel && selRig) {
       const { fx, fy, fz } = extents(sel);

@@ -8,10 +8,11 @@ import type { Book, Id } from '@/types';
 
 import { ensureCover, setBookResolution, type BookRig } from './books';
 import { OPEN_BOOK_SCALE } from './constants';
+import type { Domain } from './domain';
 import { Showcase } from './view';
 
 export type OpenBookHost = {
-  books: () => Book[];
+  domain: Domain;
   bookRigs: Map<Id, BookRig>;
   /** Livre rangé dans une caisse (sinon : dans la pile « à côté »). */
   hasCrate: (id: Id) => boolean;
@@ -37,7 +38,7 @@ export class OpenBook {
   constructor(private readonly host: OpenBookHost) {}
 
   private book(id: Id): Book | undefined {
-    return this.host.books().find((b) => b.id === id);
+    return this.host.domain.books.find((b) => b.id === id);
   }
 
   open(id: Id): void {
@@ -119,7 +120,7 @@ export class OpenBook {
   /** Recalcule les voisins du livre sorti et les fait passer au premier plan (couche 1). */
   updateNeighbors(): void {
     const h = this.host;
-    const books = h.books();
+    const { books } = h.domain;
     const open = this.id ? this.book(this.id) : undefined;
     let next: [Id | null, Id | null] = [null, null];
     if (open) {

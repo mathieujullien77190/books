@@ -6,11 +6,12 @@
  */
 import type * as THREE from 'three';
 
-import type { Book, Id } from '@/types';
+import type { Id } from '@/types';
 
 import { applyLiteMode, setBookResolution, setLiteBooks, type BookRig } from './books';
 import { LITE_KEY, OPEN_BOOK_SCALE } from './constants';
 import type { CrateRig } from './crate';
+import type { Domain } from './domain';
 import type { MissingPile } from './missingPile';
 
 export type DisplayHost = {
@@ -22,7 +23,7 @@ export type DisplayHost = {
   missing: MissingPile;
   crateRigs: Map<Id, CrateRig>;
   bookRigs: Map<Id, BookRig>;
-  books: () => Book[];
+  domain: Domain;
   openId: () => Id | null;
   touch: () => void;
   syncGhosts: () => void;
@@ -69,7 +70,7 @@ export class DisplayMode {
     h.sun.castShadow = !on && !h.transparent;
     for (const rig of h.crateRigs.values()) rig.group.visible = !on;
     for (const [id, rig] of h.bookRigs) {
-      const b = h.books().find((x) => x.id === id);
+      const b = h.domain.books.find((x) => x.id === id);
       if (b) applyLiteMode(rig, b, h.aniso);
     }
     this.finish();
@@ -81,7 +82,7 @@ export class DisplayMode {
     h.syncGhosts();
     h.refresh();
     const openId = h.openId();
-    const open = openId ? h.books().find((b) => b.id === openId) : undefined;
+    const open = openId ? h.domain.books.find((b) => b.id === openId) : undefined;
     const openRig = open && h.bookRigs.get(open.id);
     if (open && openRig) setBookResolution(openRig, open, h.aniso, OPEN_BOOK_SCALE);
   }
@@ -100,7 +101,7 @@ export class DisplayMode {
       if (h.isDisposed() || this.upgradeRun !== run) return;
       for (const id of queue.splice(0, 12)) {
         const rig = h.bookRigs.get(id);
-        const b = h.books().find((x) => x.id === id);
+        const b = h.domain.books.find((x) => x.id === id);
         if (rig && b) applyLiteMode(rig, b, h.aniso);
       }
       h.touch();

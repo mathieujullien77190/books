@@ -5,21 +5,16 @@
  */
 import { PAD, SIZES } from '@/constants';
 import { uid } from '@/helpers';
-import type { Book, Crate, CrateSize, Dims, Id, RotAxis } from '@/types';
+import type { Crate, CrateSize, Dims, Id, RotAxis } from '@/types';
 
-import { nextStepPosition, type Bounds } from './cratePlacement';
+import { nextStepPosition } from './cratePlacement';
+import type { Domain } from './domain';
 import { Q_TRANCHE, rotatedQuat } from './orientation';
 
 export type CrateOpsHost = {
-  crates: () => Crate[];
-  setCrates: (crates: Crate[]) => void;
-  books: () => Book[];
-  setSelected: (id: Id | null) => void;
-  selectedId: () => Id | null;
-  bounds: () => Bounds;
+  domain: Domain;
   /** Retire le rig de la caisse supprimée. */
   removeRig: (id: Id) => void;
-  pushHistory: () => void;
   refresh: () => void;
   recenter: () => void;
 };
@@ -28,15 +23,16 @@ export class CrateOps {
   constructor(private readonly host: CrateOpsHost) {}
 
   private find(id: Id): Crate | undefined {
-    return this.host.crates().find((c) => c.id === id);
+    return this.host.domain.crate(id);
   }
 
   add(size: CrateSize): void {
     const h = this.host;
-    h.pushHistory();
+    const d = h.domain;
+    d.pushHistory();
     const s = SIZES[size];
-    const bb = h.bounds();
-    const crates = h.crates();
+    const bb = d.bounds();
+    const { crates } = d;
     // nouvelle caisse derrière l'axe X (face avant sur l'axe), à droite du groupe ; la première au coin
     const c: Crate = {
       id: uid(),
@@ -48,25 +44,26 @@ export class CrateOps {
       dims: size === 'X' ? { w: s.w, h: s.h, d: s.d } : undefined,
     };
     crates.push(c);
-    h.setSelected(c.id);
+    d.selectedId = c.id;
     h.refresh();
     h.recenter(); // la nouvelle caisse est posée à droite du groupe, parfois hors champ
   }
 
   remove(id: Id): void {
     const h = this.host;
-    h.pushHistory();
-    h.setCrates(h.crates().filter((c) => c.id !== id));
+    const d = h.domain;
+    d.pushHistory();
+    d.crates = d.crates.filter((c) => c.id !== id);
     h.removeRig(id);
-    if (h.selectedId() === id) h.setSelected(null);
-    for (const b of h.books()) if (b.crate === id) b.crate = null;
+    if (d.selectedId === id) d.selectedId = null;
+    for (const b of d.books) if (b.crate === id) b.crate = null;
     h.refresh();
   }
 
   setSize(id: Id, size: CrateSize): void {
     const c = this.find(id);
     if (!c || c.size === size) return;
-    this.host.pushHistory();
+    this.host.domain.pushHistory();
     c.size = size;
     if (size === 'X' && !c.dims) c.dims = { ...SIZES.X };
     this.host.refresh();
@@ -76,7 +73,7 @@ export class CrateOps {
   setFlat(id: Id, flat: boolean): void {
     const c = this.find(id);
     if (!c || !!c.flat === flat) return;
-    this.host.pushHistory();
+    this.host.domain.pushHistory();
     c.flat = flat;
     this.host.refresh();
   }
@@ -85,7 +82,7 @@ export class CrateOps {
   setOverhang(id: Id, overhang: boolean): void {
     const c = this.find(id);
     if (!c || !!c.overhang === overhang) return;
-    this.host.pushHistory();
+    this.host.domain.pushHistory();
     c.overhang = overhang || undefined;
     this.host.refresh();
   }
@@ -94,7 +91,7 @@ export class CrateOps {
   setDims(id: Id, dims: Dims): void {
     const c = this.find(id);
     if (!c || c.size !== 'X') return;
-    this.host.pushHistory();
+    this.host.domain.pushHistory();
     c.dims = { ...dims };
     this.host.refresh();
   }
@@ -102,7 +99,7 @@ export class CrateOps {
   rotate(id: Id, axis: RotAxis, sign: 1 | -1): void {
     const c = this.find(id);
     if (!c) return;
-    this.host.pushHistory();
+    this.host.domain.pushHistory();
     c.q = rotatedQuat(c, axis, sign);
     this.host.refresh();
   }
@@ -116,8 +113,8 @@ export class CrateOps {
     const h = this.host;
     const c = this.find(id);
     if (!c || (axis === 'y' && sign < 0)) return;
-    h.pushHistory();
-    const crates = h.crates();
+    h.domain.pushHistory();
+    const { crates } = h.domain;
     if (axis === 'y') {
       crates.splice(crates.indexOf(c), 1);
       crates.push(c);

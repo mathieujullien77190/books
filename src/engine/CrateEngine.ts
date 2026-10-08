@@ -1,20 +1,19 @@
-import type { Book, Crate, CrateSize, Dims, Id, Mode, RotAxis, SavedState } from '@/types';
+import type { CrateSize, Dims, Id, Mode, RotAxis, SavedState } from '@/types';
 
 import { BookEditor, type BookPatch } from './bookPatch';
 import { BookRigs } from './bookRigs';
-import { OpenBook } from './openBook';
 import { CrateOps } from './crateOps';
 import { CrateRigs } from './crateRigs';
-import { crateBounds, type Bounds } from './cratePlacement';
 import { Decor } from './decor';
 import { DisplayMode } from './displayMode';
-import { History } from './history';
+import { Domain } from './domain';
 import { PointerInput } from './input';
 import { layoutBooks } from './layout';
-import { disposeGroup } from './materials';
-import { RenderLoop } from './loop';
-import { MissingPile } from './missingPile';
 import { LoadState } from './loadState';
+import { RenderLoop } from './loop';
+import { disposeGroup } from './materials';
+import { MissingPile } from './missingPile';
+import { OpenBook } from './openBook';
 import { Persistence } from './persistence';
 import { Stage } from './stage';
 import { Store } from './store';
@@ -23,10 +22,10 @@ import { focusCrateView, recenterView } from './view';
 export type { BookPatch };
 
 /**
- * Scène three.js des caisses et des livres. Façade : détient l'état du domaine (caisses, livres,
- * sélection, mode), câble les modules du moteur (persistence, history, layout, cratePlacement,
- * input, view, missingPile, decor) et l'expose à React via subscribe / getSnapshot. La
- * sauvegarde est MongoDB (voir persistence.ts).
+ * Scène three.js des caisses et des livres. Façade : possède l'état du domaine (`Domain`), câble
+ * les modules du moteur (stage, loop, crateRigs, bookRigs, openBook, displayMode, persistence,
+ * input, layout, missingPile, decor…) et l'expose à React via subscribe / getSnapshot. Chaque
+ * mutation passe par pushHistory() puis refresh(). La sauvegarde est MongoDB (voir persistence.ts).
  */
 export class CrateEngine {
   private readonly canvas: HTMLCanvasElement;
@@ -38,24 +37,24 @@ export class CrateEngine {
   private readonly missing: MissingPile;
   private readonly bookRigs: BookRigs;
 
-  private crates: Crate[] = [];
-  private books: Book[] = [];
-  private selectedId: Id | null = null;
+  private readonly domain = new Domain();
   private readonly opened: OpenBook;
   private readonly crateOps: CrateOps;
   private readonly bookEditor: BookEditor;
-  private counts = new Map<Id, number>();
-  private stats = { stored: 0, loose: 0, full: 0 };
 
   private readonly decor = new Decor();
   private readonly load: LoadState;
   private readonly display: DisplayMode;
   private readonly persistence = new Persistence({
     isDisposed: () => this.disposed,
-    getState: () => ({ crates: this.crates, books: this.books, decor: this.decor.state }),
+    getState: () => ({
+      crates: this.domain.crates,
+      books: this.domain.books,
+      decor: this.decor.state,
+    }),
     load: (state, decor) => {
       this.restore(state);
-      this.history.clear();
+      this.domain.history.clear();
       this.decor.state = decor;
     },
     failed: () => {
@@ -71,9 +70,6 @@ export class CrateEngine {
 
   /** Souris, doigts et clavier (gestes en cours, survol, infobulle). */
   private readonly input: PointerInput;
-  /** États précédents pour « Annuler » (le plus récent en dernier). */
-  private readonly history = new History();
-  private mode: Mode = 'view';
   private disposed = false;
 
   /** État lu par React : abonnement et instantané. */
@@ -96,36 +92,22 @@ export class CrateEngine {
     stage.scene.add(this.bookRigs.group);
     stage.scene.add(this.missing.group);
     this.crateRigs = new CrateRigs(stage.scene, {
-      crates: () => this.crates,
-      selectedId: () => this.selectedId,
+      domain: this.domain,
       openId: () => this.opened.id,
-      mode: () => this.mode,
       lite: () => this.display.lite,
-      bounds: () => this.bounds(),
     });
     stage.scene.add(this.decor.gizmo.group);
     this.crateOps = new CrateOps({
-      crates: () => this.crates,
-      setCrates: (crates) => {
-        this.crates = crates;
-      },
-      books: () => this.books,
-      selectedId: () => this.selectedId,
-      setSelected: (id) => {
-        this.selectedId = id;
-      },
-      bounds: () => this.bounds(),
+      domain: this.domain,
       removeRig: (id) => this.crateRigs.remove(id),
-      pushHistory: () => this.pushHistory(),
       refresh: () => this.refresh(),
       recenter: () => this.recenter(),
     });
     this.bookEditor = new BookEditor({
-      books: () => this.books,
+      domain: this.domain,
       rigOf: (id) => this.bookRigs.rigs.get(id),
       openId: () => this.opened.id,
       aniso: stage.aniso,
-      pushHistory: () => this.pushHistory(),
       changed: () => {
         this.store.markData();
         this.save();
@@ -133,7 +115,7 @@ export class CrateEngine {
       },
     });
     this.opened = new OpenBook({
-      books: () => this.books,
+      domain: this.domain,
       bookRigs: this.bookRigs.rigs,
       hasCrate: (id) => this.crateRigs.rigs.has(id),
       aniso: stage.aniso,
@@ -153,7 +135,7 @@ export class CrateEngine {
       missing: this.missing,
       crateRigs: this.crateRigs.rigs,
       bookRigs: this.bookRigs.rigs,
-      books: () => this.books,
+      domain: this.domain,
       openId: () => this.opened.id,
       touch: () => stage.touch(),
       syncGhosts: () => this.syncGhosts(),
@@ -168,22 +150,22 @@ export class CrateEngine {
       shown: () => this.display.upgrade(),
     });
     this.store = new Store(() => ({
-      crates: this.crates,
-      books: this.books,
+      crates: this.domain.crates,
+      books: this.domain.books,
       loading: this.load.pending,
       loadError: this.load.failed,
       lite: this.display.choice,
-      selectedId: this.selectedId,
+      selectedId: this.domain.selectedId,
       openId: this.opened.id,
       openSide: this.opened.back ? 'back' : 'front',
-      counts: Object.fromEntries(this.counts),
-      ...this.stats,
-      canUndo: this.history.canUndo,
+      counts: Object.fromEntries(this.domain.counts),
+      ...this.domain.stats,
+      canUndo: this.domain.history.canUndo,
       browsing: this.opened.resultIds !== null,
       hasPrev: !!this.opened.showcase.neighbors[0],
       hasNext: !!this.opened.showcase.neighbors[1],
       missingBrowse: this.missing.current,
-      mode: this.mode,
+      mode: this.domain.mode,
     }));
     this.subscribe = this.store.subscribe;
     this.getSnapshot = this.store.getSnapshot;
@@ -197,16 +179,16 @@ export class CrateEngine {
       moveGizmo: this.crateRigs.moveGizmo,
       decor: this.decor,
       missing: this.missing,
-      mode: () => this.mode,
-      selectedId: () => this.selectedId,
+      mode: () => this.domain.mode,
+      selectedId: () => this.domain.selectedId,
       setSelected: (id) => {
-        this.selectedId = id;
+        this.domain.selectedId = id;
       },
       openId: () => this.opened.id,
       neighbors: () => this.opened.showcase.neighbors,
-      crates: () => this.crates,
-      crateById: (id) => this.crate(id),
-      bookById: (id) => this.books.find((b) => b.id === id),
+      crates: () => this.domain.crates,
+      crateById: (id) => this.domain.crate(id),
+      bookById: (id) => this.domain.books.find((b) => b.id === id),
       bookRigById: (id) => this.bookRigs.rigs.get(id),
       bookMeshes: () => this.bookRigs.group.children.filter((m) => m.visible),
       stepCrate: (id, axis, sign) => this.stepCrate(id, axis, sign),
@@ -221,7 +203,7 @@ export class CrateEngine {
       undo: () => this.undo(),
       removeCrate: (id) => this.removeCrate(id),
       focusCrate: (id) => this.focusCrate(id),
-      pushHistory: () => this.pushHistory(),
+      pushHistory: () => this.domain.pushHistory(),
       refresh: () => this.refresh(),
       emit: () => this.emit(),
       relayout: () => {
@@ -292,39 +274,32 @@ export class CrateEngine {
   /** Reconstruit le tas des tomes manquants quand la liste (ou la position des caisses) change. */
   private syncGhosts(): void {
     if (!this.persistence.hydrated) return; // pas pendant le chargement : la liste des livres n'est pas complète
-    this.missing.sync(this.books, this.bounds());
+    this.missing.sync(this.domain.books, this.domain.bounds());
   }
 
   private placeDecor(): void {
-    this.decor.place(this.crates, {
-      selectedId: this.selectedId,
-      mode: this.mode,
+    this.decor.place(this.domain.crates, {
+      selectedId: this.domain.selectedId,
+      mode: this.domain.mode,
       openId: this.opened.id,
       lite: this.display.lite,
     });
   }
 
   // ---------- historique ----------
-  private pushHistory(): void {
-    this.history.push({ crates: this.crates, books: this.books, messy: false });
-  }
-
   /** Annule la dernière action (Ctrl+Z). */
   undo(): void {
-    const s = this.history.pop();
+    const s = this.domain.history.pop();
     if (s) this.restore(s);
   }
 
   /** Remplace tout l'état (annulation, ou chargement depuis la base). */
   private restore(s: SavedState): void {
     this.closeBook(false);
-    this.crates = s.crates;
-    this.books = s.books;
+    this.domain.replace(s);
     for (const id of [...this.crateRigs.rigs.keys()])
-      if (!this.crates.some((c) => c.id === id)) this.crateRigs.remove(id);
-    this.bookRigs.sync(this.books);
-    if (this.selectedId && !this.crates.some((c) => c.id === this.selectedId))
-      this.selectedId = null;
+      if (!this.domain.crates.some((c) => c.id === id)) this.crateRigs.remove(id);
+    this.bookRigs.sync(this.domain.books);
     this.bookEditor.reset();
     this.refresh();
     this.bookRigs.settle();
@@ -363,15 +338,15 @@ export class CrateEngine {
   }
 
   selectCrate(id: Id | null): void {
-    this.selectedId = id;
+    this.domain.selectedId = id;
     this.refresh();
   }
 
   // ---------- API publique : livres ----------
   removeBook(id: Id): void {
-    this.pushHistory();
+    this.domain.pushHistory();
     if (this.opened.id === id) this.closeBook(false);
-    this.books = this.books.filter((b) => b.id !== id);
+    this.domain.books = this.domain.books.filter((b) => b.id !== id);
     this.bookRigs.remove(id);
     this.refresh();
   }
@@ -446,10 +421,10 @@ export class CrateEngine {
 
   /** Édition (caisses réglables) ou bibliothèque (lecture seule, sans repère ni poignées). */
   setMode(mode: Mode): void {
-    if (this.mode === mode) return;
-    this.mode = mode;
+    if (this.domain.mode === mode) return;
+    this.domain.mode = mode;
     if (mode === 'view') {
-      this.selectedId = null;
+      this.domain.selectedId = null;
       this.decor.selected = false;
     }
     this.crateRigs.setEditing(mode === 'edit');
@@ -458,7 +433,7 @@ export class CrateEngine {
 
   /** Cadre la caméra sur une caisse, en gardant la direction de vue. */
   focusCrate(id: Id): void {
-    const c = this.crate(id);
+    const c = this.domain.crate(id);
     const rig = c && this.crateRigs.rigs.get(id);
     if (!c || !rig) return;
     focusCrateView(this.stage.camera, this.stage.controls.target, c, rig);
@@ -466,7 +441,7 @@ export class CrateEngine {
 
   // ---------- API publique : vue ----------
   recenter(): void {
-    recenterView(this.stage.camera, this.stage.controls.target, this.bounds());
+    recenterView(this.stage.camera, this.stage.controls.target, this.domain.bounds());
   }
 
   /** Élément HTML de l'infobulle (titre du livre survolé), positionné par le moteur. */
@@ -494,10 +469,6 @@ export class CrateEngine {
   }
 
   // ---------- état ----------
-  private crate(id: Id): Crate | undefined {
-    return this.crates.find((c) => c.id === id);
-  }
-
   /** Déplace la mésange d'un cran le long d'un axe du monde. */
   private stepMesange(axis: RotAxis, sign: 1 | -1): void {
     this.decor.step(axis, sign);
@@ -506,23 +477,19 @@ export class CrateEngine {
     this.emit();
   }
 
-  private bounds(): Bounds {
-    return crateBounds(this.crates);
-  }
-
   /** Chaque livre appartient à une caisse (b.crate) ou à la pile « à côté » (voir layout.ts). */
   private layoutBooks(): void {
     const { counts, stats } = layoutBooks({
-      crates: this.crates,
-      books: this.books,
+      crates: this.domain.crates,
+      books: this.domain.books,
       crateRigs: this.crateRigs.rigs,
-      bounds: this.bounds(),
+      bounds: this.domain.bounds(),
       aniso: this.stage.aniso,
-      mode: this.mode,
+      mode: this.domain.mode,
       rigOf: (b) => this.bookRigs.ensure(b),
       isHeld: (b) => this.input.heldBook === b || b.id === this.opened.id,
     });
-    this.counts = counts;
-    this.stats = stats;
+    this.domain.counts = counts;
+    this.domain.stats = stats;
   }
 }

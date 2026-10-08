@@ -192,6 +192,7 @@ export class CrateEngine {
   private downEmpty: [number, number] | null = null;
   /** Caisse sous le pointeur au clic en lecture : un clic simple zoome dessus. */
   private downCrate: Id | null = null;
+  private crateClickZoom = true;
   private readonly rotGizmo: RotateGizmo;
   private readonly moveGizmo: MoveGizmo;
   /** États précédents pour « Annuler » (le plus récent en dernier). */
@@ -785,6 +786,11 @@ export class CrateEngine {
     ex.rig.mesh.quaternion.copy(ex.rig.quat);
   }
 
+  /** Un clic sur une caisse zoome dessus (désactivé sur téléphone : on zoome au pincement). */
+  setCrateClickZoom(on: boolean): void {
+    this.crateClickZoom = on;
+  }
+
   /** Fonction appelée quand un geste cherche à modifier la bibliothèque en Lecture (null : rien). */
   setEditDeniedHandler(handler: (() => void) | null): void {
     this.onEditDenied = handler;
@@ -1225,7 +1231,7 @@ export class CrateEngine {
     const hit = this.raycaster.intersectObjects(this.hitboxes, false)[0];
     if (!hit || this.mode === 'view') {
       this.downEmpty = [e.clientX, e.clientY];
-      this.downCrate = hit ? (hit.object.userData.id as Id) : null;
+      this.downCrate = hit && this.crateClickZoom ? (hit.object.userData.id as Id) : null;
       return;
     }
     const c = this.crate(hit.object.userData.id as Id);
@@ -1306,7 +1312,7 @@ export class CrateEngine {
     if (d) {
       if (!d.moved) this.selectedId = this.selectedId === d.c.id ? null : d.c.id;
       this.refresh();
-      if (!d.moved && this.selectedId) this.focusCrate(d.c.id);
+      if (!d.moved && this.selectedId && this.crateClickZoom) this.focusCrate(d.c.id);
       try {
         this.canvas.releasePointerCapture(e.pointerId);
       } catch {

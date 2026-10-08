@@ -44,6 +44,9 @@ export const CratesApp = ({ className = '' }: CratesAppProps) => {
   useEffect(() => {
     engine?.setEditDeniedHandler(locked ? denied : null);
   }, [engine, locked, denied]);
+  useEffect(() => {
+    engine?.setCrateClickZoom(!phone); // téléphone : plus de zoom au toucher d'une caisse, seulement au pincement
+  }, [engine, phone]);
   /** Téléphone : livre dont la fiche est affichée (par le bouton « Détail » sous le livre). */
   const [detailFor, setDetailFor] = useState<string | null>(null);
   const [sheet, setSheet] = useState<'library' | 'claude' | null>(null);

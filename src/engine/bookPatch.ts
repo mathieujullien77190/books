@@ -1,8 +1,12 @@
 /**
- * Modification d'un livre depuis la fiche : champs modifiables (`BookPatch`) et application d'un
- * patch sur un livre, en nettoyant les valeurs saisies.
+ * Modification d'un livre depuis la fiche : champs modifiables (`BookPatch`), application d'un patch
+ * sur un livre (valeurs saisies nettoyées) et éditeur qui regroupe les saisies dans l'historique et
+ * refait les textures.
  */
-import type { Book } from '@/types';
+import type { Book, Id } from '@/types';
+
+import { setBookResolution, updateBookTextures, type BookRig } from './books';
+import { OPEN_BOOK_SCALE } from './constants';
 
 /** Champs modifiables d'un livre depuis la fiche. */
 export type BookPatch = Partial<
@@ -49,3 +53,51 @@ export const applyBookPatch = (b: Book, patch: BookPatch): boolean => {
     meta
   );
 };
+
+/** Ce que l'éditeur de fiche demande au moteur. */
+export type BookEditorHost = {
+  books: () => Book[];
+  rigOf: (id: Id) => BookRig | undefined;
+  openId: () => Id | null;
+  aniso: number;
+  pushHistory: () => void;
+  /** Les données ont changé : le snapshot est à recopier, la base à mettre à jour, l'interface à prévenir. */
+  changed: () => void;
+};
+
+/** Édition d'un livre depuis la fiche : une saisie suivie = une seule entrée d'historique, textures refaites après une pause. */
+export class BookEditor {
+  private lastEdit: { id: Id; ts: number } | null = null;
+  private texTimer = 0;
+
+  constructor(private readonly host: BookEditorHost) {}
+
+  update(id: Id, patch: BookPatch): void {
+    const h = this.host;
+    const b = h.books().find((k) => k.id === id);
+    if (!b) return;
+    // une « session » de saisie sur le même livre = une seule entrée d'historique
+    const now = Date.now();
+    if (!this.lastEdit || this.lastEdit.id !== id || now - this.lastEdit.ts > 1500) h.pushHistory();
+    this.lastEdit = { id, ts: now };
+    if (applyBookPatch(b, patch)) {
+      window.clearTimeout(this.texTimer);
+      this.texTimer = window.setTimeout(() => {
+        const rig = h.rigOf(id);
+        if (!rig) return;
+        updateBookTextures(rig, b, h.aniso);
+        if (h.openId() === id) setBookResolution(rig, b, h.aniso, OPEN_BOOK_SCALE);
+      }, 250);
+    }
+    h.changed();
+  }
+
+  /** La saisie en cours ne se prolonge plus (état remplacé par une restauration ou un chargement). */
+  reset(): void {
+    this.lastEdit = null;
+  }
+
+  dispose(): void {
+    window.clearTimeout(this.texTimer);
+  }
+}

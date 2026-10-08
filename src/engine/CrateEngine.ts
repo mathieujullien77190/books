@@ -10,11 +10,9 @@ import type {
   Snapshot,
 } from '@/types';
 
-import { applyBookPatch, type BookPatch } from './bookPatch';
+import { BookEditor, type BookPatch } from './bookPatch';
 import { BookRigs } from './bookRigs';
-import { setBookResolution, updateBookTextures } from './books';
 import { OpenBook } from './openBook';
-import { OPEN_BOOK_SCALE } from './constants';
 import { CrateOps } from './crateOps';
 import { CrateRigs } from './crateRigs';
 import { crateBounds, type Bounds } from './cratePlacement';
@@ -54,6 +52,7 @@ export class CrateEngine {
   private selectedId: Id | null = null;
   private readonly opened: OpenBook;
   private readonly crateOps: CrateOps;
+  private readonly bookEditor: BookEditor;
   private counts = new Map<Id, number>();
   private stats = { stored: 0, loose: 0, full: 0 };
 
@@ -85,9 +84,7 @@ export class CrateEngine {
   private readonly input: PointerInput;
   /** États précédents pour « Annuler » (le plus récent en dernier). */
   private readonly history = new History();
-  private lastEdit: { id: Id; ts: number } | null = null;
   private mode: Mode = 'view';
-  private texTimer = 0;
   /** Premier rendu déjà fait derrière l'indicateur de chargement. */
   private warmed = false;
   private disposed = false;
@@ -137,6 +134,18 @@ export class CrateEngine {
       pushHistory: () => this.pushHistory(),
       refresh: () => this.refresh(),
       recenter: () => this.recenter(),
+    });
+    this.bookEditor = new BookEditor({
+      books: () => this.books,
+      rigOf: (id) => this.bookRigs.rigs.get(id),
+      openId: () => this.opened.id,
+      aniso: stage.aniso,
+      pushHistory: () => this.pushHistory(),
+      changed: () => {
+        this.dataDirty = true;
+        this.save();
+        this.emit();
+      },
     });
     this.opened = new OpenBook({
       books: () => this.books,
@@ -366,7 +375,7 @@ export class CrateEngine {
     this.bookRigs.sync(this.books);
     if (this.selectedId && !this.crates.some((c) => c.id === this.selectedId))
       this.selectedId = null;
-    this.lastEdit = null;
+    this.bookEditor.reset();
     this.refresh();
     this.bookRigs.settle();
   }
@@ -418,25 +427,7 @@ export class CrateEngine {
   }
 
   updateBook(id: Id, patch: BookPatch): void {
-    const b = this.books.find((k) => k.id === id);
-    if (!b) return;
-    // une « session » de saisie sur le même livre = une seule entrée d'historique
-    const now = Date.now();
-    if (!this.lastEdit || this.lastEdit.id !== id || now - this.lastEdit.ts > 1500)
-      this.pushHistory();
-    this.lastEdit = { id, ts: now };
-    if (applyBookPatch(b, patch)) {
-      window.clearTimeout(this.texTimer);
-      this.texTimer = window.setTimeout(() => {
-        const rig = this.bookRigs.rigs.get(id);
-        if (!rig) return;
-        updateBookTextures(rig, b, this.stage.aniso);
-        if (this.opened.id === id) setBookResolution(rig, b, this.stage.aniso, OPEN_BOOK_SCALE);
-      }, 250);
-    }
-    this.dataDirty = true;
-    this.save();
-    this.emit();
+    this.bookEditor.update(id, patch);
   }
 
   openBook(id: Id): void {
@@ -542,7 +533,7 @@ export class CrateEngine {
     this.disposed = true;
     this.decor.disposeBird(this.stage.scene);
     this.loop.stop();
-    window.clearTimeout(this.texTimer);
+    this.bookEditor.dispose();
     this.input.detach();
     this.bookRigs.dispose();
     this.crateRigs.dispose();

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { isEditToken } from '@/lib/edit';
 import { claimRev, getDb, hasMongoConfig } from '@/lib/mongodb';
 import type { Book, Crate } from '@/types';
 
@@ -13,11 +14,15 @@ export const POST = async (request: Request): Promise<NextResponse> => {
   if (!hasMongoConfig()) return NextResponse.json({ ok: false, reason: 'no-db' });
   try {
     const body = (await request.json()) as {
+      token?: unknown;
       rev?: number;
       crates?: Crate[];
       books?: Book[];
       decor?: { mesange?: { dx?: unknown; dy?: unknown; dz?: unknown } };
     };
+    // seule une session qui a saisi le code d'Édition peut écrire (sinon n'importe qui pourrait vider la base)
+    if (!isEditToken(body.token))
+      return NextResponse.json({ ok: false, reason: 'locked' }, { status: 401 });
     const db = await getDb();
     const rev = body.rev ?? 0;
     if (!(await claimRev(db, rev))) return NextResponse.json({ ok: false, reason: 'conflict' });

@@ -93,6 +93,15 @@ const stackJitter = (id: string): { dr: number; df: number; yaw: number } => {
   return { dr: next() * 0.08, df: next() * 0.05, yaw: next() * 0.05 };
 };
 
+/** Jeton d'Édition gardé par le navigateur (voir CratesApp/helpers.ts) : le serveur refuse l'écriture sans lui. */
+const readEditToken = (): string | null => {
+  try {
+    return localStorage.getItem('edit-token');
+  } catch {
+    return null;
+  }
+};
+
 /** Caisse sur laquelle se perche la mésange, et retrait de son centre par rapport aux bords du dessus. */
 const MESANGE_PERCH = 'P5';
 const MESANGE_MARGIN = 0.2;
@@ -425,7 +434,7 @@ export class CrateEngine {
       const res = await fetch('/api/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: `{"rev":${this.rev},${body.slice(1)}`,
+        body: `{"rev":${this.rev},"token":${JSON.stringify(readEditToken())},${body.slice(1)}`,
       });
       const data = (await res.json()) as { ok: boolean; rev?: number; reason?: string };
       if (data.ok) {

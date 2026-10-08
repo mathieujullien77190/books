@@ -1,5 +1,5 @@
 import { GRID_STEP, SIZE_LETTERS, SIZES, STORE_KEY } from '@/constants';
-import type { Book, Crate, Dims, Id, SavedState } from '@/types';
+import type { Crate, Dims, Id, SavedState } from '@/types';
 
 export const uid = (): Id => Math.random().toString(36).slice(2, 9);
 

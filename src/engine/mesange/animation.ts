@@ -12,6 +12,9 @@ import { createLegPlanter } from './legs';
 
 type Mode = 'idle' | 'peck';
 
+/** Posture de base : le corps penche vers l'avant (rad, positif = bec vers le bas) au lieu d'être tout droit. */
+const BASE_PITCH = 0.3;
+
 /** Générateur pseudo-aléatoire à graine (mulberry32) : même comportement à chaque chargement. */
 const seeded = (seed: number) => {
   let a = seed >>> 0;
@@ -140,7 +143,7 @@ export const createMesangeAnimator = (
     let rz = 0;
     if (body) {
       body.position.y = baseY; // jamais de rebond : les pattes restent posées sur la caisse
-      body.rotation.x += (pitch - body.rotation.x) * k(16);
+      body.rotation.x += (BASE_PITCH + pitch - body.rotation.x) * k(16);
       body.rotation.z += ((mode === 'idle' ? lean : 0) - body.rotation.z) * k(7);
       rz = body.rotation.z;
     }

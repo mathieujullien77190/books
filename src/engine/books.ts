@@ -70,16 +70,19 @@ export const spineTexture = (
   const H = 1024;
   const W = Math.max(8, Math.min(512, Math.round((H * t) / h)));
   const c = document.createElement('canvas');
-  c.width = W;
-  c.height = H;
+  // dessinée à double résolution (les coordonnées ci-dessous restent celles de la base W × H) : sur une
+  // tranche fine, le titre foncé s'écrasait en bouillie floue au rétrécissement des mipmaps
+  c.width = W * 2;
+  c.height = H * 2;
   const g = c.getContext('2d')!;
+  g.scale(2, 2);
   g.fillStyle = color;
   g.fillRect(0, 0, W, H);
   const light = isLight(color);
   g.fillStyle = light ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.28)';
   g.fillRect(0, 56, W, 16);
   g.fillRect(0, H - 72, W, 16);
-  g.fillStyle = textColor ?? (light ? 'rgba(20,20,30,0.85)' : 'rgba(255,250,240,0.92)');
+  g.fillStyle = textColor ?? (light ? '#0b0b12' : 'rgba(255,250,240,0.95)');
   g.textAlign = 'center';
   g.textBaseline = 'middle';
 

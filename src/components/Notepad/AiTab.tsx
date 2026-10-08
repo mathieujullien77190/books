@@ -107,7 +107,7 @@ export const AiTab = ({
         {showKey && (
           <TextInput
             id="aiKey"
-            type="password"
+            type="text"
             className="h-8 min-w-0 flex-1 py-0"
             placeholder="sk-ant-…"
             aria-label="Clé API Anthropic"

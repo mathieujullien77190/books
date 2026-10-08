@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useEmbedMode } from '@/components/shared';
 import SearchBar from '@/components/SearchBar';
 import MissingBar from '@/components/ToBuyList/MissingBar';
 import ToBuyList from '@/components/ToBuyList';
@@ -12,6 +13,7 @@ import Toast from '@/components/ui/Toast';
 import { crateLabels } from '@/helpers';
 
 import { FLOAT_SHADOW } from './constants';
+import { BackgroundLayout } from './BackgroundLayout';
 import { DesktopLayout } from './DesktopLayout';
 import { useCrateEngine, useIsPhone } from './helpers';
 import { PhoneLayout } from './PhoneLayout';
@@ -22,6 +24,7 @@ export const CratesApp = ({ className = '' }: CratesAppProps) => {
   const { holder, snapshot: snap } = useCrateEngine();
   const engine = holder.engine;
   const phone = useIsPhone();
+  const bg = useEmbedMode() === 'bg'; // fond du bureau d'AOC : scène seule
   const { lock, toast } = useEditLock(engine, snap.mode);
   useEffect(() => {
     engine?.setCrateClickZoom(!phone); // téléphone : plus de zoom au toucher d'une caisse, seulement au pincement
@@ -45,22 +48,32 @@ export const CratesApp = ({ className = '' }: CratesAppProps) => {
     <div className={`relative h-dvh w-full overflow-hidden ${className}`}>
       <canvas ref={mountCanvas} className="block h-full w-full touch-none" />
 
-      <SearchBar
-        books={snap.books}
-        labels={labels}
-        onOpen={(id) => engine?.openBook(id)}
-        onRemove={(id) => (lock.locked ? lock.denied() : engine?.removeBook(id))}
-        onShowAll={(ids) => engine?.showBooks(ids)}
-      />
-      {phone ? <PhoneLayout {...layout} /> : <DesktopLayout {...layout} />}
-      <IconButton
-        className={`fixed right-4 bottom-4 z-10 h-11 w-11 bg-white/90 text-xl backdrop-blur-md ${FLOAT_SHADOW}`}
-        label="Recentrer la vue"
-        title="Recentrer la vue sur toutes les caisses"
-        onClick={() => engine?.recenter()}
-      >
-        🎯
-      </IconButton>
+      {!bg && (
+        <SearchBar
+          books={snap.books}
+          labels={labels}
+          onOpen={(id) => engine?.openBook(id)}
+          onRemove={(id) => (lock.locked ? lock.denied() : engine?.removeBook(id))}
+          onShowAll={(ids) => engine?.showBooks(ids)}
+        />
+      )}
+      {bg ? (
+        <BackgroundLayout {...layout} />
+      ) : phone ? (
+        <PhoneLayout {...layout} />
+      ) : (
+        <DesktopLayout {...layout} />
+      )}
+      {!bg && (
+        <IconButton
+          className={`fixed right-4 bottom-4 z-10 h-11 w-11 bg-white/90 text-xl backdrop-blur-md ${FLOAT_SHADOW}`}
+          label="Recentrer la vue"
+          title="Recentrer la vue sur toutes les caisses"
+          onClick={() => engine?.recenter()}
+        >
+          🎯
+        </IconButton>
+      )}
       {snap.loading && <LoadingOverlay message="Chargement de la bibliothèque…" />}
       {snap.missingBrowse && (
         <MissingBar

@@ -1,5 +1,5 @@
 /** Clé localStorage du jeton d'Édition délivré par le serveur (/api/edit). */
-export const EDIT_TOKEN_KEY = 'edit-token';
+export { EDIT_TOKEN_KEY } from '@/constants';
 
 /** Clé localStorage de la clé API de la personne (propre à chaque navigateur, jamais en base). */
 export const KEY_STORAGE = 'anthropic-api-key';

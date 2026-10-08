@@ -56,7 +56,7 @@ export const createMesangeAnimator = (
   const plantFeet = createLegPlanter(root, legs);
 
   let mode: Mode = 'idle';
-  let timer = 0.6 + rnd() * 1.4;
+  let timer = 2 + rnd() * 3;
   let calm = false;
   let peckT = 0;
   let lookT = 0;
@@ -75,7 +75,7 @@ export const createMesangeAnimator = (
 
     leanT -= dt;
     if (leanT <= 0) {
-      leanT = 0.6 + rnd() * 2;
+      leanT = 2.5 + rnd() * 5;
       lean = calm || rnd() < 0.45 ? 0 : (rnd() < 0.5 ? -1 : 1) * (0.15 + rnd() * 0.2);
     }
     let pitch = 0;
@@ -89,7 +89,7 @@ export const createMesangeAnimator = (
     lookT -= dt;
     if (lookT <= 0) {
       const amp = calm ? 0.5 : 1;
-      lookT = calm ? 0.7 + rnd() * 1.6 : 0.15 + rnd() * 0.45;
+      lookT = calm ? 2 + rnd() * 3 : 0.8 + rnd() * 1.8;
       lookY = (rnd() - 0.5) * 1.8 * amp;
       lookX = (rnd() - 0.5) * 0.5 * amp;
       lookZ = (rnd() - 0.5) * 0.35 * amp;
@@ -97,7 +97,7 @@ export const createMesangeAnimator = (
     // Coups de queue secs.
     flickT -= dt;
     if (flickT <= 0) {
-      flickT = 0.4 + rnd() * 1.6;
+      flickT = 2.5 + rnd() * 5;
       if (!calm) flick = 1;
     }
     flick = Math.max(0, flick - dt * 6);
@@ -105,14 +105,14 @@ export const createMesangeAnimator = (
 
     timer -= dt;
     if (mode === 'idle') {
-      if (!calm && t % 5 < 0.5)
+      if (!calm && t % 16 < 0.5)
         open = 0.6 * Math.pow(Math.max(0, Math.sin(2 * Math.PI * 6 * t)), 1.5); // pépie
       if (timer <= 0) {
         const r = rnd();
         calm = false;
-        if (r < 0.25) {
+        if (r < 0.6) {
           calm = true;
-          timer = 2 + rnd() * 4;
+          timer = 3 + rnd() * 6;
         } else {
           mode = 'peck';
           peckT = 0;
@@ -133,7 +133,7 @@ export const createMesangeAnimator = (
       if (e > 0.8) open = (e - 0.8) / 0.2;
       if (timer <= 0) {
         mode = 'idle';
-        timer = 0.2 + rnd() * 0.8;
+        timer = 2 + rnd() * 4;
       }
     }
 

@@ -50,6 +50,9 @@ export type Book = {
   isbn?: string;
   /** Nombre total de tomes de la série du livre (permet d'afficher les tomes manquants). */
   seriesTotal?: number;
+  /** Nom de la série et numéro du tome, quand le titre ne les donne pas clairement (prioritaires sur le titre). */
+  series?: string;
+  volume?: number;
   /** Fiabilité de l'ISBN : lu sur le livre (verifie), édition très probable (bonne) ou incertaine (moyenne). */
   isbnConfidence?: IsbnConfidence;
   /** Couleur du titre sur la tranche (sinon noir ou blanc selon le fond). */

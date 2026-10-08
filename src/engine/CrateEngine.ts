@@ -3,7 +3,15 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 import { GRID_STEP, OUTLINE_PAD, PAD, PLANK as T, SCENE_BG, SIZES } from '@/constants';
-import { clearLegacyState, crateDims, crateLabels, loadLegacyState, snap, uid } from '@/helpers';
+import {
+  clearLegacyState,
+  crateDims,
+  crateLabels,
+  loadLegacyState,
+  missingVolumes,
+  snap,
+  uid,
+} from '@/helpers';
 import type {
   Book,
   Crate,
@@ -35,6 +43,7 @@ import { buildCrate, forgetCrateLabel, setCrateLabel, uprightLabel, type CrateRi
 import { buildRotateGizmo, type RotateGizmo } from './rotateGizmo';
 import { buildGrid, buildWorldAxes, type WorldAxes } from './worldAxes';
 import { disposeGroup } from './materials';
+import { GHOST_T, buildGhost } from './ghosts';
 import { loadMesange, type Mesange } from './mesange';
 import { buildMoveGizmo, type MoveGizmo } from './moveGizmo';
 import {
@@ -116,6 +125,8 @@ const readEditToken = (): string | null => {
 
 /** Caisse sur laquelle se perche la mésange, et retrait de son centre par rapport aux bords du dessus. */
 const MESANGE_PERCH = 'P5';
+/** Nombre de livres manquants par tas (au-delà, un nouveau tas à gauche du précédent). */
+const GHOST_PILE = 28;
 const MESANGE_MARGIN = 0.2;
 /** Elle s'enfonce un peu dans le dessus de la caisse pour que ses pattes touchent le bois. */
 const MESANGE_SINK = 0.24;
@@ -173,6 +184,9 @@ export class CrateEngine {
   private readonly crateRigs = new Map<Id, CrateRig>();
   private readonly hitboxes: THREE.Mesh[] = [];
   private readonly booksGroup = new THREE.Group();
+  /** Tas à gauche des caisses : un livre translucide par tome manquant. */
+  private readonly ghostGroup = new THREE.Group();
+  private ghostKey = '';
   private readonly bookRigs = new Map<Id, BookRig>();
 
   private crates: Crate[] = [];
@@ -288,6 +302,7 @@ export class CrateEngine {
     this.scene.add(sun);
     this.scene.add(this.buildGround());
     this.scene.add(this.booksGroup);
+    this.scene.add(this.ghostGroup);
     this.axes = buildWorldAxes();
     this.grid = buildGrid();
     this.grid.visible = this.mode === 'edit';
@@ -473,8 +488,33 @@ export class CrateEngine {
     this.placeCrates();
     this.layoutBooks();
     this.placeDecor();
+    this.syncGhosts();
     this.save();
     this.emit();
+  }
+
+  /** Reconstruit le tas des tomes manquants quand la liste (ou la position des caisses) change. */
+  private syncGhosts(): void {
+    const missing = missingVolumes(this.books);
+    const bb = this.bounds();
+    const key = `${missing.map((m) => m.label).join('|')}@${bb.minX.toFixed(2)},${bb.cz.toFixed(2)}`;
+    if (key === this.ghostKey) return;
+    this.ghostKey = key;
+    for (const g of [...this.ghostGroup.children]) {
+      this.ghostGroup.remove(g);
+      disposeGroup(g);
+    }
+    missing.forEach((m, i) => {
+      const pile = Math.floor(i / GHOST_PILE);
+      const level = i % GHOST_PILE;
+      const ghost = buildGhost(m.label);
+      // léger désordre déterministe : le tas n'est pas parfait
+      const jx = Math.sin(i * 12.9898) * 0.06;
+      const jz = Math.cos(i * 78.233) * 0.05;
+      ghost.position.set(bb.minX - 1.9 - pile * 2.4 + jx, GHOST_T * (level + 0.5), bb.cz + jz);
+      ghost.rotation.y = Math.sin(i * 4.1) * 0.05;
+      this.ghostGroup.add(ghost);
+    });
   }
 
   /** La mésange est perchée sur le coin avant droit de la caisse `MESANGE_PERCH` et la suit si on la déplace. */
@@ -925,6 +965,7 @@ export class CrateEngine {
     this.bookRigs.clear();
     disposeGroup(this.rotGizmo.group);
     disposeGroup(this.moveGizmo.group);
+    disposeGroup(this.ghostGroup);
     disposeGroup(this.decorGizmo.group);
     this.scene.remove(this.rotGizmo.group, this.moveGizmo.group, this.decorGizmo.group);
     this.controls.dispose();

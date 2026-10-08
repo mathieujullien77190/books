@@ -1,5 +1,5 @@
 import { GRID_STEP, SIZE_LETTERS, SIZES, STORE_KEY } from '@/constants';
-import type { Crate, Dims, Id, SavedState } from '@/types';
+import type { Book, Crate, Dims, Id, SavedState } from '@/types';
 
 export const uid = (): Id => Math.random().toString(36).slice(2, 9);
 
@@ -72,3 +72,38 @@ export const parseVolume = (title: string): Volume | null => {
 /** Libellé court d'un numéro : « T3 », « n°36/37 ». */
 export const volumeLabel = (v: Volume): string =>
   `${v.mark}${v.num}${v.last > v.num ? `/${v.last}` : ''}`;
+
+/** Série et numéro d'un livre : champs `series` / `volume` s'ils existent, sinon analyse du titre. */
+export const volumeOf = (b: Book): Volume | null =>
+  b.series && b.volume
+    ? { prefix: b.series, num: b.volume, last: b.volume, mark: 'T' }
+    : parseVolume(b.title);
+
+export type MissingVolume = { series: string; label: string; num: number };
+
+/** Tous les numéros manquants de toutes les séries : de 1 au dernier possédé (ou au total connu). */
+export const missingVolumes = (books: Book[]): MissingVolume[] => {
+  const groups = new Map<
+    string,
+    { name: string; mark: Volume['mark']; owned: Set<number>; total: number }
+  >();
+  for (const b of books) {
+    const v = volumeOf(b);
+    if (!v || !v.prefix) continue;
+    const key = v.prefix.toLowerCase();
+    const g = groups.get(key) ?? {
+      name: v.prefix,
+      mark: v.mark,
+      owned: new Set<number>(),
+      total: 0,
+    };
+    for (let n = v.num; n <= v.last; n++) g.owned.add(n);
+    g.total = Math.max(g.total, b.seriesTotal ?? 0, v.last);
+    groups.set(key, g);
+  }
+  const out: MissingVolume[] = [];
+  for (const g of [...groups.values()].sort((a, b) => a.name.localeCompare(b.name)))
+    for (let n = 1; n <= g.total; n++)
+      if (!g.owned.has(n)) out.push({ series: g.name, label: `${g.name} ${g.mark}${n}`, num: n });
+  return out;
+};

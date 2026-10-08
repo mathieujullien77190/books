@@ -206,7 +206,7 @@ export const BookDetail = ({
               it.id === null ? (
                 <span
                   key={`missing-${it.num}`}
-                  className="cursor-default rounded-lg border border-dashed border-ink/40 bg-ink/[0.06] px-1.5 py-0.5 text-xs leading-tight text-muted"
+                  className="flex h-9 min-w-9 cursor-default items-center justify-center rounded-lg border border-dashed border-ink/40 bg-ink/[0.06] px-1.5 text-xs leading-none text-muted"
                   title={`${series.name} ${it.label} : manquant`}
                 >
                   {it.label}
@@ -215,7 +215,7 @@ export const BookDetail = ({
                 <Button
                   key={it.id}
                   variant={it.id === book?.id ? 'active' : 'default'}
-                  className="px-1.5 py-0.5 text-xs"
+                  className="flex h-9 min-w-9 items-center justify-center px-1.5 py-0 text-xs leading-none"
                   title={`Ouvrir ${series.name} ${it.label}`}
                   onClick={() => it.id !== book?.id && onOpen(it.id!)}
                 >

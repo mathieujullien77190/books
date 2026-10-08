@@ -1,4 +1,4 @@
-import { parseVolume, volumeLabel } from '@/helpers';
+import { volumeLabel, volumeOf } from '@/helpers';
 import type { Book } from '@/types';
 
 /** Photo de couverture → data URL JPEG réduite (256 × 384), légère pour le localStorage. */
@@ -36,14 +36,14 @@ export const seriesOf = (
   book: Book,
   allBooks: Book[],
 ): { name: string; items: SeriesItem[]; owned: number; total: number } | null => {
-  const v = parseVolume(book.title);
+  const v = volumeOf(book);
   if (!v) return null;
   const key = v.prefix.toLowerCase();
   const items: SeriesItem[] = [];
   const owned = new Set<number>();
   let total = 0;
   for (const b of allBooks) {
-    const bv = parseVolume(b.title);
+    const bv = volumeOf(b);
     if (!bv || bv.prefix.toLowerCase() !== key) continue;
     items.push({ id: b.id, label: volumeLabel(bv), num: bv.num });
     for (let n = bv.num; n <= bv.last; n++) owned.add(n);

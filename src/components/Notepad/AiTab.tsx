@@ -187,7 +187,7 @@ export const AiTab = ({ onChanged }: { onChanged?: () => void }) => {
           className={`h-8 w-9 shrink-0 cursor-pointer rounded-lg border bg-white p-0 text-base ${
             showKey ? 'border-ink' : 'border-ink/10 hover:border-accent'
           }`}
-          title="Clé API Anthropic (gardée dans ce navigateur uniquement)"
+          title="Clé API Anthropic"
           aria-label="Clé API Anthropic"
           aria-expanded={showKey}
           onClick={() => setShowKey((v) => !v)}

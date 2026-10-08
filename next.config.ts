@@ -5,6 +5,7 @@ const FRAME_ANCESTORS = ["'self'", 'https://mathieu-jullien.vercel.app', 'http:/
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  devIndicators: false, // pas de pastille Next.js en bas de l'écran, même en développement
   // accès au serveur dev depuis le réseau local (http://192.168.1.66:3000) : autorise le rechargement à chaud
   allowedDevOrigins: ['192.168.1.66', 'localhost'],
   async headers() {

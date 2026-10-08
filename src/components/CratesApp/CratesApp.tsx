@@ -71,6 +71,15 @@ export const CratesApp = ({ className = '' }: CratesAppProps) => {
       ) : (
         <DesktopLayout {...layout} />
       )}
+      {!bg && !phone && (
+        <Button
+          className={`fixed bottom-4 left-4 z-10 h-11 rounded-full bg-white/90 px-4 backdrop-blur-md ${FLOAT_SHADOW}`}
+          title="Recentrer la vue sur toutes les caisses"
+          onClick={() => engine?.recenter()}
+        >
+          🎯 Recentrer
+        </Button>
+      )}
       {!bg && (
         <Button
           className={`fixed right-4 bottom-4 z-10 h-11 rounded-full px-4 backdrop-blur-md ${FLOAT_SHADOW} ${snap.lite ? '' : 'bg-white/90'}`}

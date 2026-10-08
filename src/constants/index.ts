@@ -6,6 +6,9 @@ export const APP_DESCRIPTION = 'Range tes livres dans des caisses en bois, en 3D
 /** Clé localStorage. v3 : nouvelles tailles de caisses, plus de livres d'exemple. */
 export const STORE_KEY = 'crates-books-v3';
 
+/** Clé localStorage du jeton d'Édition (le serveur refuse l'écriture sans lui). */
+export const EDIT_TOKEN_KEY = 'edit-token';
+
 /** Échelle : 1 unité = 10 cm. w = largeur (X), h = hauteur (Y), d = profondeur (Z). */
 export const SIZES: Record<CrateSize, { label: string; w: number; h: number; d: number }> = {
   S: { label: 'Petite', w: 2.0, h: 3.0, d: 2.0 }, // 20 larg × 30 haut × 20 prof

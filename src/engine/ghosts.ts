@@ -22,7 +22,8 @@ export const buildGhostBook = (
     summary: '',
     h: tpl.h,
     d: tpl.d,
-    t: tpl.t,
+    // même épaisseur pour tous les tomes de la série, la plus forte : les titres sont écrits à la même taille
+    t: m.maxT,
     crate: null,
     kind: tpl.kind,
   };

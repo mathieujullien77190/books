@@ -185,7 +185,12 @@ export class CrateEngine {
   private ghostKey = '';
   /** Le papier « Livres à acheter » posé sur le tas, et ce qu'il déclenche au clic. */
   private note: THREE.Group | null = null;
-  private onNoteClick: (() => void) | null = null;
+  /** Livres manquants du tas, du bas vers le haut, pour le défilé en 3D. */
+  private ghostItems: { mesh: THREE.Object3D; label: string }[] = [];
+  /** Rang (dans ghostItems) du tome manquant affiché en gros plan ; null : pas de défilé. */
+  private missingIdx: number | null = null;
+  /** Cible de la caméra pendant le défilé : on s'y glisse en douceur. */
+  private camGoal: { target: THREE.Vector3; pos: THREE.Vector3 } | null = null;
   private readonly bookRigs = new Map<Id, BookRig>();
 
   private crates: Crate[] = [];
@@ -360,6 +365,14 @@ export class CrateEngine {
       browsing: this.resultIds !== null,
       hasPrev: !!this.neighbors[0],
       hasNext: !!this.neighbors[1],
+      missingBrowse:
+        this.missingIdx === null
+          ? null
+          : {
+              label: this.ghostItems[this.missingIdx]?.label ?? '',
+              index: this.ghostItems.length - this.missingIdx,
+              total: this.ghostItems.length,
+            },
       mode: this.mode,
     };
   }
@@ -502,6 +515,8 @@ export class CrateEngine {
       this.ghostGroup.remove(g);
       disposeGroup(g);
     }
+    this.ghostItems = [];
+    if (this.missingIdx !== null) this.missingIdx = null;
     let height = 0;
     missing.forEach((m, i) => {
       const pile = Math.floor(i / GHOST_PILE);
@@ -514,6 +529,7 @@ export class CrateEngine {
       mesh.quaternion.setFromEuler(new THREE.Euler(0, Math.sin(i * 4.1) * 0.12, Math.PI / 2));
       height += t;
       this.ghostGroup.add(mesh);
+      this.ghostItems.push({ mesh, label: m.label });
     });
     // un papier plié posé sur le dessus de la pile : « Livres à acheter »
     if (missing.length) {
@@ -860,9 +876,38 @@ export class CrateEngine {
     this.crateClickZoom = on;
   }
 
-  /** Fonction appelée au clic sur le papier « Livres à acheter » (null : rien). */
-  setNoteHandler(handler: (() => void) | null): void {
-    this.onNoteClick = handler;
+  /** Lance le défilé des tomes manquants : caméra en gros plan sur le dernier du tas (le plus petit). */
+  browseMissing(): void {
+    if (!this.ghostItems.length) return;
+    this.closeBook(false);
+    this.missingIdx = this.ghostItems.length - 1;
+    this.focusGhost();
+    this.emit();
+  }
+
+  /** Tome manquant suivant (dir 1, vers le bas du tas) ou précédent (-1, vers le haut), en boucle. */
+  stepMissing(dir: 1 | -1): void {
+    if (this.missingIdx === null || !this.ghostItems.length) return;
+    const n = this.ghostItems.length;
+    this.missingIdx = (this.missingIdx - dir + n) % n;
+    this.focusGhost();
+    this.emit();
+  }
+
+  endMissingBrowse(): void {
+    if (this.missingIdx === null) return;
+    this.missingIdx = null;
+    this.camGoal = null;
+    this.emit();
+  }
+
+  /** Cadre la caméra de face sur le tome manquant courant. */
+  private focusGhost(): void {
+    const g = this.missingIdx === null ? undefined : this.ghostItems[this.missingIdx];
+    if (!g) return;
+    const target = g.mesh.getWorldPosition(new THREE.Vector3());
+    const pos = target.clone().addScaledVector(HOME_DIR, 3.4);
+    this.camGoal = { target, pos };
   }
 
   /** Fonction appelée quand un geste cherche à modifier la bibliothèque en Lecture (null : rien). */
@@ -1284,13 +1329,8 @@ export class CrateEngine {
       }
     }
     // papier « Livres à acheter » : un clic ouvre la liste des tomes manquants
-    if (
-      this.note &&
-      this.onNoteClick &&
-      !this.openId &&
-      this.raycaster.intersectObject(this.note, true).length
-    ) {
-      this.onNoteClick();
+    if (this.note && !this.openId && this.raycaster.intersectObject(this.note, true).length) {
+      this.browseMissing();
       return;
     }
     // mésange (Édition) : ses flèches déplacent d'un cran, un clic sur elle la sélectionne
@@ -1451,11 +1491,19 @@ export class CrateEngine {
   };
 
   private readonly onKeyDown = (e: KeyboardEvent): void => {
+    if (e.key === 'Escape' && this.missingIdx !== null) {
+      this.endMissingBrowse();
+      return;
+    }
     if (e.key === 'Escape' && this.openId) {
       this.closeBook();
       return;
     }
     if (isTyping()) return;
+    if (this.missingIdx !== null && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+      this.stepMissing(e.key === 'ArrowLeft' ? -1 : 1);
+      return;
+    }
     if (this.openId && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
       const id = this.neighbors[e.key === 'ArrowLeft' ? 0 : 1];
       if (id) this.openBook(id);
@@ -1655,6 +1703,11 @@ export class CrateEngine {
     const dt = Math.min(this.timer.getDelta(), 0.05);
     const k = 1 - Math.exp(-dt * 7);
     this.updateShowcase();
+    if (this.camGoal) {
+      this.camera.position.lerp(this.camGoal.pos, k);
+      this.controls.target.lerp(this.camGoal.target, k);
+      if (this.camera.position.distanceToSquared(this.camGoal.pos) < 1e-4) this.camGoal = null;
+    }
     this.mesange?.update(dt, this.timer.getElapsed());
     for (const rig of this.bookRigs.values()) {
       this._tv.copy(rig.target);

@@ -17,6 +17,7 @@ export const EMPTY_SNAPSHOT: Snapshot = {
   browsing: false,
   hasPrev: false,
   hasNext: false,
+  missingBrowse: null,
   mode: 'view',
 };
 

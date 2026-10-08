@@ -103,5 +103,7 @@ export type Snapshot = {
   /** Il y a un livre précédent / suivant à ouvrir (voisins ou résultats de recherche). */
   hasPrev: boolean;
   hasNext: boolean;
+  /** Défilé des tomes manquants en 3D : tome affiché (rang depuis le haut du tas) et nombre total. */
+  missingBrowse: { label: string; index: number; total: number } | null;
   mode: Mode;
 };

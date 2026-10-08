@@ -84,7 +84,14 @@ export const volumeOf = (b: Book): Volume | null => {
 };
 
 /** Un tome manquant ; `template` est le livre possédé de la série le plus proche (dimensions, couleurs). */
-export type MissingVolume = { series: string; label: string; num: number; template: Book };
+export type MissingVolume = {
+  series: string;
+  label: string;
+  num: number;
+  template: Book;
+  /** Plus forte épaisseur des tomes possédés de la série : tous les fantômes l'adoptent (titres de même taille). */
+  maxT: number;
+};
 
 /** Tous les numéros manquants de toutes les séries : de 1 au dernier possédé (ou au total connu). */
 export const missingVolumes = (books: Book[]): MissingVolume[] => {
@@ -131,6 +138,7 @@ export const missingVolumes = (books: Book[]): MissingVolume[] => {
           label: `${g.name} ${g.mark}${n}`,
           num: n,
           template: nearest.book,
+          maxT: Math.max(...g.books.map((x) => x.book.t)),
         });
       }
   return out;

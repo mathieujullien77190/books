@@ -103,7 +103,12 @@ export class CrateEngine {
   /** Vrai jusqu'à la fin du premier chargement : l'interface affiche un indicateur. */
   private loading = true;
   private loadError = false;
-  private lite = false;
+  /** Affichage en cours : léger (pavés, sans caisses ni mésange ni ombres) ou complet. */
+  private lite = true;
+  /** Choix de la personne (gardé dans localStorage) : complet ou léger. Au démarrage on affiche toujours le léger d'abord. */
+  private liteChoice = false;
+  /** Numéro de la montée en mode complet en cours (0 = aucune) ; sert à l'interrompre. */
+  private upgradeRun = 0;
   private sun!: THREE.DirectionalLight;
   private readonly persistence = new Persistence({
     isDisposed: () => this.disposed,
@@ -174,11 +179,12 @@ export class CrateEngine {
   ) {
     this.canvas = canvas;
     try {
-      this.lite = localStorage.getItem(LITE_KEY) === '1';
+      this.liteChoice = localStorage.getItem(LITE_KEY) === '1';
     } catch {
-      this.lite = false;
+      this.liteChoice = false;
     }
-    setLiteBooks(this.lite);
+    // le léger s'affiche d'abord (chargement rapide) ; le complet suit une fois la scène montrée, sauf choix léger
+    setLiteBooks(true);
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: transparent });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
@@ -327,7 +333,7 @@ export class CrateEngine {
       messy: false,
       loading: this.loading,
       loadError: this.loadError,
-      lite: this.lite,
+      lite: this.liteChoice,
       selectedId: this.selectedId,
       openId: this.openId,
       openSide: this.openBack ? 'back' : 'front',
@@ -353,26 +359,67 @@ export class CrateEngine {
    * qui rament). Le choix est gardé sur l'appareil.
    */
   setLite(on: boolean): void {
-    if (this.lite === on) return;
-    this.lite = on;
-    setLiteBooks(on);
+    this.liteChoice = on;
     try {
       localStorage.setItem(LITE_KEY, on ? '1' : '0');
     } catch {
       // stockage indisponible : le choix vaut pour cette visite seulement
     }
-    this.sun.castShadow = !on;
+    this.upgradeRun = 0; // interrompt une montée en mode complet en cours
+    if (this.lite !== on) this.applyMode(on);
+    else this.emit();
+  }
+
+  /** Bascule l'affichage entre léger et complet, d'un bloc. */
+  private applyMode(on: boolean): void {
+    this.lite = on;
+    setLiteBooks(on);
+    this.sun.castShadow = !on && !this.transparent;
     for (const rig of this.crateRigs.values()) rig.group.visible = !on;
     for (const [id, rig] of this.bookRigs) {
       const b = this.books.find((x) => x.id === id);
       if (b) applyLiteMode(rig, b, this.aniso);
     }
+    this.finishMode();
+  }
+
+  private finishMode(): void {
     this.missing.invalidate();
     this.syncGhosts();
     this.refresh();
     const open = this.openId ? this.books.find((b) => b.id === this.openId) : undefined;
     const openRig = open && this.bookRigs.get(open.id);
     if (open && openRig) setBookResolution(openRig, open, this.aniso, OPEN_BOOK_SCALE);
+  }
+
+  /**
+   * Après le premier affichage (léger), passe au complet par petits lots pour ne pas figer l'écran :
+   * dos des livres, puis caisses, mésange et ombres. Sans effet si la personne a choisi le mode léger.
+   */
+  private upgradeToFull(): void {
+    if (this.liteChoice) return;
+    const run = ++this.upgradeRun;
+    setLiteBooks(false); // les livres créés d'ici là sont déjà complets
+    const queue = [...this.bookRigs.keys()];
+    const step = (): void => {
+      if (this.disposed || this.upgradeRun !== run) return;
+      for (const id of queue.splice(0, 12)) {
+        const rig = this.bookRigs.get(id);
+        const b = this.books.find((x) => x.id === id);
+        if (rig && b) applyLiteMode(rig, b, this.aniso);
+      }
+      this.touch();
+      if (queue.length) {
+        window.setTimeout(step, 16);
+        return;
+      }
+      this.upgradeRun = 0;
+      this.lite = false;
+      this.sun.castShadow = !this.transparent;
+      for (const rig of this.crateRigs.values()) rig.group.visible = true;
+      this.finishMode();
+    };
+    window.setTimeout(step, 150);
   }
 
   /** Chargement terminé (ou impossible) : l'interface retire l'indicateur. */
@@ -395,6 +442,7 @@ export class CrateEngine {
         this.renderer.getContext().finish();
         this.loading = false;
         this.emit();
+        this.upgradeToFull();
       });
   }
 

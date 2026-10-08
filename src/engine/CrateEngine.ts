@@ -77,6 +77,19 @@ type Bounds = {
   cz: number;
 };
 
+/** Décalage et rotation propres à un livre empilé à plat (déterministes : même id, même désordre). */
+const stackJitter = (id: string): { dr: number; df: number; yaw: number } => {
+  let h = 2166136261;
+  for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619);
+  const next = (): number => {
+    h = Math.imul(h ^ (h >>> 15), 2246822507);
+    h = Math.imul(h ^ (h >>> 13), 3266489909);
+    h ^= h >>> 16;
+    return ((h >>> 0) / 4294967296) * 2 - 1; // [-1, 1[
+  };
+  return { dr: next() * 0.08, df: next() * 0.05, yaw: next() * 0.05 };
+};
+
 /** Apparition des livres au chargement : nombre de livres par vague et délai entre deux vagues. */
 const REVEAL_BATCH = 12;
 const REVEAL_MS = 60;
@@ -1000,11 +1013,14 @@ export class CrateEngine {
         const fOf = (d: number): number =>
           d > fr.innerF ? -fr.innerF / 2 + T / 2 + d / 2 : fr.innerF / 2 + T / 2 - 0.1 - d / 2;
         const f = !fr.front ? 0 : fOf(fr.mode === 'flat' ? deepest : b.d);
+        // à plat, la pile n'est jamais parfaite : léger décalage gauche-droite / avant-arrière et léger
+        // quart de tour, fixes pour un même livre (tirés de son id, pas de hasard à chaque rendu)
+        const jit = fr.mode === 'flat' ? stackJitter(b.id) : null;
         this._local
           .set(0, 0, 0)
-          .addScaledVector(fr.R, ru[0])
+          .addScaledVector(fr.R, ru[0] + (jit ? jit.dr : 0))
           .addScaledVector(fr.U, ru[1])
-          .addScaledVector(fr.F, f);
+          .addScaledVector(fr.F, f + (jit ? jit.df : 0));
         rig.group.localToWorld(this._local);
         br.target.copy(this._local);
         this._q.setFromEuler(
@@ -1018,6 +1034,8 @@ export class CrateEngine {
           .copy(rig.group.quaternion)
           .multiply(fr.mode === 'stand' ? standQ! : flatQ!)
           .multiply(this._q);
+        // le livre est couché : son axe local X (l'épaisseur) pointe vers le haut, il pivote autour
+        if (jit) br.quat.multiply(this._q.setFromAxisAngle(AXES.x, jit.yaw));
       }
     }
     for (const b of unassigned) {

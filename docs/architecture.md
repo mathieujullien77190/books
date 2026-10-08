@@ -30,3 +30,11 @@ persistance.
 ## 4. Déploiement et environnement
 
 ![Dépôt, Vercel, variables d'environnement, MongoDB Atlas, API Anthropic](deployment.svg)
+
+## 5. Modules du moteur
+
+![Modules de src/engine regroupés par rôle autour de la façade CrateEngine](engine-modules.svg)
+
+`CrateEngine` est une façade d'environ 500 lignes : il câble les modules par des interfaces « Host » (closures)
+et garde les mêmes méthodes publiques. Les modules sans three.js ni React (`domain`, `store`, `loadState`,
+`persistence`, `cratePlacement`, `history`) se testent sous Node.

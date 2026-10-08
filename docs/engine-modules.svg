@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 780" width="1000" height="780" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
+  <title>Modules du moteur (src/engine)</title>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#1f2a37"/>
+    </marker>
+  </defs>
+  <rect width="1000" height="780" fill="#ffffff"/>
+
+  <!-- interface -->
+  <rect x="330" y="16" width="340" height="52" rx="10" fill="#ffffff" stroke="#1f2a37" stroke-width="1.5"/>
+  <text x="500" y="38" font-size="14" font-weight="700" text-anchor="middle" fill="#1f2a37">Interface React</text>
+  <text x="500" y="56" font-size="12" text-anchor="middle" fill="#5b6b7c">useSyncExternalStore + appels de méthodes</text>
+
+  <!-- façade -->
+  <rect x="30" y="100" width="940" height="82" rx="12" fill="#fff7ec" stroke="#b5651d" stroke-width="2"/>
+  <text x="500" y="128" font-size="16" font-weight="700" text-anchor="middle" fill="#1f2a37">CrateEngine (façade, ≈ 500 lignes)</text>
+  <text x="500" y="150" font-size="12.5" text-anchor="middle" fill="#5b6b7c">API publique inchangée ; câble les modules ci-dessous par des interfaces « Host » (closures) ;</text>
+  <text x="500" y="168" font-size="12.5" text-anchor="middle" fill="#5b6b7c">refresh() = placement → disposition des livres → sauvegarde → emit</text>
+  <path d="M500 68 V100" stroke="#1f2a37" stroke-width="1.6" marker-end="url(#a)"/>
+
+  <!-- colonnes -->
+  <g stroke-width="1.5">
+    <rect x="30" y="214" width="220" height="266" rx="10" fill="#eaf5ea" stroke="#4a8a4a"/>
+    <rect x="270" y="214" width="220" height="266" rx="10" fill="#f3f7fb" stroke="#9db3c8"/>
+    <rect x="510" y="214" width="220" height="266" rx="10" fill="#fff7ec" stroke="#d9b48a"/>
+    <rect x="750" y="214" width="220" height="266" rx="10" fill="#f3f7fb" stroke="#9db3c8"/>
+  </g>
+  <g font-size="13.5" font-weight="700" fill="#1f2a37" text-anchor="middle">
+    <text x="140" y="240">État et données</text>
+    <text x="380" y="240">Caisses</text>
+    <text x="620" y="240">Livres</text>
+    <text x="860" y="240">Rendu et vue</text>
+  </g>
+  <g font-size="12" fill="#1f2a37">
+    <text x="46" y="266" font-weight="700">domain.ts</text>
+    <text x="46" y="282" fill="#5b6b7c">caisses, livres, sélection, mode,</text>
+    <text x="46" y="296" fill="#5b6b7c">historique (history.ts)</text>
+    <text x="46" y="322" font-weight="700">persistence.ts</text>
+    <text x="46" y="338" fill="#5b6b7c">GET /api/state, POST /api/sync, rev</text>
+    <text x="46" y="364" font-weight="700">store.ts</text>
+    <text x="46" y="380" fill="#5b6b7c">subscribe, getSnapshot (copies)</text>
+    <text x="46" y="406" font-weight="700">loadState.ts</text>
+    <text x="46" y="422" fill="#5b6b7c">indicateur de chargement</text>
+    <text x="46" y="448" font-weight="700">constants.ts · orientation.ts</text>
+    <text x="46" y="464" fill="#5b6b7c">constantes, quaternions à 90°</text>
+
+    <text x="286" y="266" font-weight="700">crateOps.ts</text>
+    <text x="286" y="282" fill="#5b6b7c">ajout, retrait, taille, réglages,</text>
+    <text x="286" y="296" fill="#5b6b7c">rotation, déplacement d'un cran</text>
+    <text x="286" y="322" font-weight="700">crateRigs.ts · crate.ts</text>
+    <text x="286" y="338" fill="#5b6b7c">maillages, étiquettes, repère,</text>
+    <text x="286" y="352" fill="#5b6b7c">grille, gizmos, surbrillance</text>
+    <text x="286" y="378" font-weight="700">cratePlacement.ts</text>
+    <text x="286" y="394" fill="#5b6b7c">gravité, aimantation, emprise</text>
+    <text x="286" y="408" fill="#5b6b7c">(fonctions pures)</text>
+    <text x="286" y="434" font-weight="700">moveGizmo · rotateGizmo</text>
+    <text x="286" y="450" fill="#5b6b7c">flèches de l'Édition</text>
+
+    <text x="526" y="266" font-weight="700">bookRigs.ts · bookRig.ts</text>
+    <text x="526" y="282" fill="#5b6b7c">création, mode léger, résolution</text>
+    <text x="526" y="308" font-weight="700">bookTextures.ts</text>
+    <text x="526" y="324" fill="#5b6b7c">dos, couverture, tranche (canvas)</text>
+    <text x="526" y="350" font-weight="700">bookFrame.ts · layout.ts</text>
+    <text x="526" y="366" fill="#5b6b7c">repère d'une caisse, cibles des livres</text>
+    <text x="526" y="392" font-weight="700">bookPatch.ts</text>
+    <text x="526" y="408" fill="#5b6b7c">saisie de la fiche, historique</text>
+    <text x="526" y="434" font-weight="700">openBook.ts</text>
+    <text x="526" y="450" fill="#5b6b7c">ouverture, voisins, ‹ ›, sortie</text>
+
+    <text x="766" y="266" font-weight="700">stage.ts</text>
+    <text x="766" y="282" fill="#5b6b7c">renderer, caméra, lumières, sol,</text>
+    <text x="766" y="296" fill="#5b6b7c">rendu à la demande, ombres</text>
+    <text x="766" y="322" font-weight="700">loop.ts</text>
+    <text x="766" y="338" fill="#5b6b7c">boucle d'animation (tick)</text>
+    <text x="766" y="364" font-weight="700">displayMode.ts</text>
+    <text x="766" y="380" fill="#5b6b7c">léger puis complet, upgrade</text>
+    <text x="766" y="406" font-weight="700">decor.ts · birdLabel.ts</text>
+    <text x="766" y="422" fill="#5b6b7c">mésange, étiquette HTML</text>
+    <text x="766" y="448" font-weight="700">missingPile · view · ghosts</text>
+    <text x="766" y="464" fill="#5b6b7c">tas manquants, recadrage, voisins</text>
+  </g>
+
+  <!-- entrées -->
+  <rect x="30" y="510" width="940" height="76" rx="10" fill="#ffffff" stroke="#1f2a37" stroke-width="1.5"/>
+  <text x="46" y="536" font-size="13.5" font-weight="700" fill="#1f2a37">Entrées : input.ts (PointerInput)</text>
+  <text x="46" y="556" font-size="12" fill="#5b6b7c">souris, doigts (pincement, un doigt déplace), clavier, survol et infobulle ; appelle le moteur par une interface de closures</text>
+  <text x="46" y="574" font-size="12" fill="#5b6b7c">molette enfoncée = tourner, clic droit = déplacer, clic gauche = caisses et livres (jamais déplacer un livre à la souris)</text>
+
+  <!-- liens -->
+  <g stroke="#1f2a37" stroke-width="1.5" fill="none" marker-end="url(#a)">
+    <path d="M140 182 V214"/>
+    <path d="M380 182 V214"/>
+    <path d="M620 182 V214"/>
+    <path d="M860 182 V214"/>
+    <path d="M500 480 V510" stroke-dasharray="5 4"/>
+  </g>
+
+  <!-- règles -->
+  <rect x="30" y="610" width="940" height="150" rx="10" fill="#f3f7fb" stroke="#9db3c8" stroke-width="1.5"/>
+  <text x="46" y="636" font-size="13.5" font-weight="700" fill="#1f2a37">Règles de conception</text>
+  <g font-size="12" fill="#1f2a37">
+    <text x="46" y="660">• Le moteur reste propriétaire de l'état : les modules le lisent et le modifient, puis demandent un refresh().</text>
+    <text x="46" y="680">• Toute mutation passe par pushHistory() puis refresh() ; tout changement visible hors de emit() appelle touch().</text>
+    <text x="46" y="700">• Aucune dépendance circulaire dans src/engine ; modules testables sous Node sans WebGL (voir la couverture de tests).</text>
+    <text x="46" y="720">• books.ts n'est plus qu'un barrel (export * de bookTextures, bookRig, bookFrame) pour garder les imports existants.</text>
+    <text x="46" y="740">• Sans three.js ni React : domain, store, loadState, persistence, cratePlacement, history ; orientation n'utilise que les maths de three.</text>
+  </g>
+</svg>

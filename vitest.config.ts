@@ -4,8 +4,16 @@ import { defineConfig } from 'vitest/config';
 
 /**
  * Couverture à 100 % sur la logique testable en Node : helpers, code serveur (src/lib, routes API) et
- * modules du moteur sans rendu. Le périmètre est volontairement listé : tout ce qui construit de la scène
- * three.js, du canvas ou de l'interface React n'est pas couvert par des tests unitaires.
+ * tout le moteur (src/engine). Rien n'est exclu : le rendu WebGL et le canvas n'existent pas sous Node,
+ * donc les tests du moteur les remplacent par des doubles qui enregistrent les appels :
+ * - stage.ts : WebGLRenderer, PMREMGenerator et OrbitControls simulés (vérifie l'ordre des passes,
+ *   le rendu à la demande, la restauration du fond, le réchauffage) ;
+ * - bookTextures.ts, ghosts.ts, worldAxes.ts : faux document.createElement('canvas') à contexte 2D
+ *   enregistreur (textes écrits, polices, retours à la ligne) et faux Image ;
+ * - crate.ts : FontLoader et TextGeometry simulés ; mesange/index.ts : GLTFLoader simulé ;
+ * - CrateEngine.ts : vrais modules du moteur et vraie scène three.js, seul Stage est remplacé ;
+ *   fetch, window, localStorage et les faux timers viennent de src/test/engineHarness.ts.
+ * Ce que les doubles ne prouvent pas (le rendu réel à l'écran) reste à vérifier à la main.
  */
 export default defineConfig({
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
@@ -19,36 +27,7 @@ export default defineConfig({
         'src/lib/**/*.ts',
         'src/app/api/**/route.ts',
         'src/constants/**/*.ts',
-        'src/engine/birdLabel.ts',
-        'src/engine/bookFrame.ts',
-        'src/engine/bookPatch.ts',
-        'src/engine/bookRig.ts',
-        'src/engine/bookRigs.ts',
-        'src/engine/books.ts',
-        'src/engine/bookTextures.ts',
-        'src/engine/constants.ts',
-        'src/engine/crate.ts',
-        'src/engine/crateOps.ts',
-        'src/engine/cratePlacement.ts',
-        'src/engine/crateRigs.ts',
-        'src/engine/decor.ts',
-        'src/engine/displayMode.ts',
-        'src/engine/domain.ts',
-        'src/engine/ghosts.ts',
-        'src/engine/history.ts',
-        'src/engine/layout.ts',
-        'src/engine/loadState.ts',
-        'src/engine/materials.ts',
-        'src/engine/missingPile.ts',
-        'src/engine/moveGizmo.ts',
-        'src/engine/openBook.ts',
-        'src/engine/orientation.ts',
-        'src/engine/persistence.ts',
-        'src/engine/rotateGizmo.ts',
-        'src/engine/store.ts',
-        'src/engine/view.ts',
-        'src/engine/worldAxes.ts',
-        'src/engine/mesange/*.ts',
+        'src/engine/**/*.ts',
       ],
       exclude: ['**/*.test.ts'],
       thresholds: { lines: 100, functions: 100, branches: 100, statements: 100 },

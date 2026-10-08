@@ -72,33 +72,3 @@ export const parseVolume = (title: string): Volume | null => {
 /** Libellé court d'un numéro : « T3 », « n°36/37 ». */
 export const volumeLabel = (v: Volume): string =>
   `${v.mark}${v.num}${v.last > v.num ? `/${v.last}` : ''}`;
-
-export type MissingSeries = {
-  prefix: string;
-  mark: Volume['mark'];
-  have: number[];
-  missing: number[];
-};
-
-/** Pour chaque série détectée dans la bibliothèque, les numéros de tome absents entre le premier
- * et le dernier possédé (ex. T1, T2, T4 → manque T3). */
-export const missingBooks = (books: Book[]): MissingSeries[] => {
-  const groups = new Map<string, { prefix: string; mark: Volume['mark']; nums: Set<number> }>();
-  for (const b of books) {
-    const v = parseVolume(b.title);
-    if (!v) continue;
-    const key = v.prefix.toLowerCase();
-    const g = groups.get(key) ?? { prefix: v.prefix, mark: v.mark, nums: new Set<number>() };
-    for (let n = v.num; n <= v.last; n++) g.nums.add(n);
-    groups.set(key, g);
-  }
-  const out: MissingSeries[] = [];
-  for (const { prefix, mark, nums } of groups.values()) {
-    if (nums.size < 2) continue;
-    const have = [...nums].sort((a, b) => a - b);
-    const missing: number[] = [];
-    for (let n = have[0]!; n <= have[have.length - 1]!; n++) if (!nums.has(n)) missing.push(n);
-    if (missing.length) out.push({ prefix, mark, have, missing });
-  }
-  return out.sort((a, b) => a.prefix.localeCompare(b.prefix));
-};

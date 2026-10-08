@@ -4,7 +4,7 @@ import CrateList from '@/components/CrateList';
 import CrateSelection from '@/components/CrateSelection';
 import Button from '@/components/ui/Button';
 import { APP_NAME, SIZE_KEYS, SIZES } from '@/constants';
-import { crateLabels, missingBooks } from '@/helpers';
+import { crateLabels } from '@/helpers';
 
 import { MODES } from './constants';
 import { statusText } from './helpers';
@@ -36,7 +36,6 @@ export const SidePanel = ({
   const edit = snapshot.mode === 'edit';
   const selected = snapshot.crates.find((c) => c.id === snapshot.selectedId) ?? null;
   const labels = crateLabels(snapshot.crates);
-  const gaps = missingBooks(snapshot.books);
 
   return (
     <aside className="pointer-events-auto w-full shrink-0 rounded-2xl border border-ink/10 bg-white/85 text-sm shadow-[0_10px_30px_rgba(31,42,55,0.12)] backdrop-blur-md">
@@ -138,20 +137,6 @@ export const SidePanel = ({
               onOverhang={onCrateOverhang}
               onDelete={onCrateDelete}
             />
-          )}
-
-          {gaps.length > 0 && (
-            <>
-              <H2>Livres manquants</H2>
-              <ul className="mb-2 list-disc pl-4 text-xs text-ink">
-                {gaps.map((g) => (
-                  <li key={g.prefix}>
-                    <span className="font-medium">{g.prefix}</span> : manque{' '}
-                    {g.missing.map((n) => `${g.mark}${n}`).join(', ')}
-                  </li>
-                ))}
-              </ul>
-            </>
           )}
         </div>
       )}

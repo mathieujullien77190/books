@@ -1,14 +1,4 @@
-import type {
-  Book,
-  Crate,
-  CrateSize,
-  Dims,
-  Id,
-  Mode,
-  RotAxis,
-  SavedState,
-  Snapshot,
-} from '@/types';
+import type { Book, Crate, CrateSize, Dims, Id, Mode, RotAxis, SavedState } from '@/types';
 
 import { BookEditor, type BookPatch } from './bookPatch';
 import { BookRigs } from './bookRigs';
@@ -27,6 +17,7 @@ import { RenderLoop } from './loop';
 import { MissingPile } from './missingPile';
 import { Persistence } from './persistence';
 import { Stage } from './stage';
+import { Store } from './store';
 import { focusCrateView, recenterView } from './view';
 
 export type { BookPatch };
@@ -89,12 +80,10 @@ export class CrateEngine {
   private warmed = false;
   private disposed = false;
 
-  private readonly listeners = new Set<() => void>();
-  /** Données modifiées depuis la dernière copie du snapshot (voir makeSnapshot). */
-  private dataDirty = true;
-  private snapCrates: Crate[] = [];
-  private snapBooks: Book[] = [];
-  private snapshot: Snapshot;
+  /** État lu par React : abonnement et instantané. */
+  private readonly store: Store;
+  readonly subscribe: Store['subscribe'];
+  readonly getSnapshot: Store['getSnapshot'];
 
   /** `transparent` : fond et sol invisibles (seules les ombres restent), pour la poser sur un autre décor. */
   constructor(
@@ -142,7 +131,7 @@ export class CrateEngine {
       aniso: stage.aniso,
       pushHistory: () => this.pushHistory(),
       changed: () => {
-        this.dataDirty = true;
+        this.store.markData();
         this.save();
         this.emit();
       },
@@ -176,7 +165,26 @@ export class CrateEngine {
       emit: () => this.emit(),
     });
 
-    this.snapshot = this.makeSnapshot();
+    this.store = new Store(() => ({
+      crates: this.crates,
+      books: this.books,
+      loading: this.loading,
+      loadError: this.loadError,
+      lite: this.display.choice,
+      selectedId: this.selectedId,
+      openId: this.opened.id,
+      openSide: this.opened.back ? 'back' : 'front',
+      counts: Object.fromEntries(this.counts),
+      ...this.stats,
+      canUndo: this.history.canUndo,
+      browsing: this.opened.resultIds !== null,
+      hasPrev: !!this.opened.showcase.neighbors[0],
+      hasNext: !!this.opened.showcase.neighbors[1],
+      missingBrowse: this.missing.current,
+      mode: this.mode,
+    }));
+    this.subscribe = this.store.subscribe;
+    this.getSnapshot = this.store.getSnapshot;
     stage.resize();
     this.input = new PointerInput({
       canvas,
@@ -248,47 +256,9 @@ export class CrateEngine {
     void this.persistence.hydrate();
   }
 
-  // ---------- store ----------
-  subscribe = (listener: () => void): (() => void) => {
-    this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
-  };
-
-  getSnapshot = (): Snapshot => this.snapshot;
-
-  private makeSnapshot(): Snapshot {
-    // copies profondes refaites seulement quand les données ont changé (refresh, updateBook) : ouvrir
-    // un livre, le retourner ou parcourir les manquants garde les mêmes tableaux pour React
-    if (this.dataDirty) {
-      this.snapCrates = this.crates.map((c) => ({ ...c }));
-      this.snapBooks = this.books.map((b) => ({ ...b }));
-      this.dataDirty = false;
-    }
-    return {
-      crates: this.snapCrates,
-      books: this.snapBooks,
-      messy: false,
-      loading: this.loading,
-      loadError: this.loadError,
-      lite: this.display.choice,
-      selectedId: this.selectedId,
-      openId: this.opened.id,
-      openSide: this.opened.back ? 'back' : 'front',
-      counts: Object.fromEntries(this.counts),
-      ...this.stats,
-      canUndo: this.history.canUndo,
-      browsing: this.opened.resultIds !== null,
-      hasPrev: !!this.opened.showcase.neighbors[0],
-      hasNext: !!this.opened.showcase.neighbors[1],
-      missingBrowse: this.missing.current,
-      mode: this.mode,
-    };
-  }
-
   private emit(): void {
     this.stage.touch();
-    this.snapshot = this.makeSnapshot();
-    for (const l of this.listeners) l();
+    this.store.emit();
   }
 
   /**
@@ -329,7 +299,7 @@ export class CrateEngine {
   }
 
   private refresh(): void {
-    this.dataDirty = true;
+    this.store.markData();
     this.opened.updateNeighbors();
     this.crateRigs.place();
     this.layoutBooks();

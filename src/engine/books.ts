@@ -215,6 +215,7 @@ export const coverTexture = (
           coverImages.set(cover, img);
           g.drawImage(img, 0, 0, W, H);
           tex.needsUpdate = true;
+          textureListeners.forEach((fn) => fn());
         };
         img.onerror = () => {
           if (attempt < COVER_RETRIES)
@@ -230,6 +231,13 @@ export const coverTexture = (
 
 /** Nouvelles tentatives d'une couverture qui n'a pas pu se charger. */
 const COVER_RETRIES = 3;
+
+/** Prévenu quand une couverture finit de se charger (le moteur ne redessine que ce qui a changé). */
+const textureListeners = new Set<() => void>();
+export const onTextureReady = (fn: () => void): (() => void) => {
+  textureListeners.add(fn);
+  return () => textureListeners.delete(fn);
+};
 
 /** Images de couverture déjà chargées : un livre rouvert se redessine sans clignoter. */
 const coverImages = new Map<string, HTMLImageElement>();

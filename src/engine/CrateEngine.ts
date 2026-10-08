@@ -20,6 +20,7 @@ import {
   disposeBookRig,
   ensureCover,
   makeBookRig,
+  onTextureReady,
   setBookResolution,
   updateBookTextures,
   type BookRig,
@@ -130,6 +131,21 @@ export class CrateEngine {
   private readonly grid: THREE.GridHelper;
   private mode: Mode = 'view';
   private texTimer = 0;
+  /**
+   * Rendu à la demande : l'image n'est redessinée que si quelque chose a changé (caméra, livre en
+   * mouvement, état, couverture chargée, événement souris/clavier) ou, pour la mésange, une image sur
+   * deux environ. Une scène immobile ne coûte plus de GPU.
+   */
+  private dirty = true;
+  /** Les ombres (statiques) ne sont recalculées que si la scène a changé, pas pour la seule mésange. */
+  private shadowDirty = true;
+  private lastBirdFrame = 0;
+  private readonly stopTextureWatch: () => void;
+  private touch(): void {
+    this.dirty = true;
+    this.shadowDirty = true;
+  }
+  private readonly invalidate = (): void => this.touch();
   /** Premier rendu déjà fait derrière l'indicateur de chargement. */
   private warmed = false;
   private raf = 0;
@@ -156,6 +172,7 @@ export class CrateEngine {
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: transparent });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
+    renderer.shadowMap.autoUpdate = false; // recalculées à la demande (voir `shadowDirty`)
     renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.0;
@@ -182,6 +199,11 @@ export class CrateEngine {
     controls.mouseButtons = { LEFT: null, MIDDLE: THREE.MOUSE.ROTATE, RIGHT: THREE.MOUSE.PAN };
     controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_PAN };
     this.controls = controls;
+    controls.addEventListener('change', this.invalidate);
+    this.stopTextureWatch = onTextureReady(this.invalidate);
+    for (const type of ['pointermove', 'pointerdown', 'pointerup', 'wheel'])
+      canvas.addEventListener(type, this.invalidate, { passive: true });
+    window.addEventListener('keydown', this.invalidate);
 
     // couche 1 : livre sorti, rendu par-dessus la scène
     const hemi = new THREE.HemisphereLight(0xffffff, 0x8fa3b5, 0.35);
@@ -309,6 +331,7 @@ export class CrateEngine {
   }
 
   private emit(): void {
+    this.touch();
     this.snapshot = this.makeSnapshot();
     for (const l of this.listeners) l();
   }
@@ -328,6 +351,7 @@ export class CrateEngine {
       .catch(() => undefined)
       .then(() => {
         if (this.disposed) return;
+        this.renderer.shadowMap.needsUpdate = true;
         this.renderer.render(this.scene, this.camera);
         this.renderer.getContext().finish();
         this.loading = false;
@@ -762,6 +786,10 @@ export class CrateEngine {
     this.decor.disposeBird(this.scene);
     cancelAnimationFrame(this.raf);
     window.clearTimeout(this.texTimer);
+    this.stopTextureWatch();
+    for (const type of ['pointermove', 'pointerdown', 'pointerup', 'wheel'])
+      this.canvas.removeEventListener(type, this.invalidate);
+    window.removeEventListener('keydown', this.invalidate);
     this.resizeObserver.disconnect();
     this.input.detach();
     for (const id of [...this.crateRigs.keys()]) this.removeCrateRig(id);
@@ -822,6 +850,7 @@ export class CrateEngine {
     const host = this.canvas.parentElement ?? this.canvas;
     const w = Math.max(1, host.clientWidth);
     const h = Math.max(1, host.clientHeight);
+    this.touch();
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
@@ -949,21 +978,41 @@ export class CrateEngine {
     );
     this.missing.updateCamera(this.camera, this.controls.target, k);
     this.decor.update(dt, this.timer.getElapsed());
+    // la mésange s'anime en continu : une image sur deux environ suffit (jamais si elle est cachée)
+    const now = performance.now();
+    if (this.decor.group?.visible && now - this.lastBirdFrame > 50) {
+      this.lastBirdFrame = now;
+      this.dirty = true; // pas shadowDirty : la mésange seule ne change pas les ombres
+    }
     for (const rig of this.bookRigs.values()) {
       this._tv.copy(rig.target);
       if (rig === this.input.hovered && rig.id !== this.openId) this._tv.y += 0.15;
-      rig.mesh.position.lerp(this._tv, k);
-      rig.mesh.quaternion.slerp(rig.quat, k);
       const s =
         this.openId && !this.isPortrait() && this.showcase.neighbors.includes(rig.id)
           ? NEIGHBOR_SCALE
           : 1;
+      // un livre encore en mouvement (position, rotation ou taille) demande une nouvelle image
+      if (
+        rig.mesh.position.distanceToSquared(this._tv) > 1e-8 ||
+        1 - Math.abs(rig.mesh.quaternion.dot(rig.quat)) > 1e-9 ||
+        Math.abs(rig.mesh.scale.x - s) > 1e-5
+      )
+        this.touch();
+      rig.mesh.position.lerp(this._tv, k);
+      rig.mesh.quaternion.slerp(rig.quat, k);
       rig.mesh.scale.setScalar(rig.mesh.scale.x + (s - rig.mesh.scale.x) * k);
     }
     this.input.updateHover();
     this.controls.update();
     if (this.camera.position.y < 0.25) this.camera.position.y = 0.25; // jamais sous le sol
     this.placeBirdLabel();
+    if (!this.dirty) {
+      this.raf = requestAnimationFrame(this.tick);
+      return;
+    }
+    this.dirty = false;
+    this.renderer.shadowMap.needsUpdate = this.shadowDirty;
+    this.shadowDirty = false;
     this.renderer.clear();
     this.camera.layers.set(0);
     this.renderer.render(this.scene, this.camera);

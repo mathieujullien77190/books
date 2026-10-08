@@ -6,6 +6,8 @@ export type NotepadTab = 'notes' | 'ai';
 export type AiTurn = {
   role: 'user' | 'assistant';
   content: string;
+  /** Heure d'envoi (ms), affichée sous la bulle. */
+  at?: number;
   /** Modifications faites par Claude pendant cette réponse (affichage seulement). */
   actions?: string[];
 };

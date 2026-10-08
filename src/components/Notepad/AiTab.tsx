@@ -43,6 +43,9 @@ const writeKey = (key: string): void => {
   }
 };
 
+const timeOf = (at?: number): string =>
+  at ? new Date(at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
+
 export const AiTab = ({ onChanged }: { onChanged?: () => void }) => {
   const [key, setKey] = useState(readKey);
   const [model, setModel] = useState(readModel);
@@ -60,7 +63,7 @@ export const AiTab = ({ onChanged }: { onChanged?: () => void }) => {
     e.preventDefault();
     const q = question.trim();
     if (!q || !key.trim() || busy) return;
-    const next: AiTurn[] = [...turns, { role: 'user', content: q }];
+    const next: AiTurn[] = [...turns, { role: 'user', content: q, at: Date.now() }];
     setTurns(next);
     setQuestion('');
     setError('');
@@ -84,7 +87,10 @@ export const AiTab = ({ onChanged }: { onChanged?: () => void }) => {
         actions?: string[];
       };
       if (data.ok && data.text) {
-        setTurns([...next, { role: 'assistant', content: data.text, actions: data.actions }]);
+        setTurns([
+          ...next,
+          { role: 'assistant', content: data.text, actions: data.actions, at: Date.now() },
+        ]);
         if (data.changed) onChanged?.();
       } else {
         setTurns(turns); // la question reste à poser : on la remet dans le champ
@@ -137,27 +143,39 @@ export const AiTab = ({ onChanged }: { onChanged?: () => void }) => {
           </option>
         ))}
       </select>
-      {turns.length > 0 && (
-        <div className="mb-2 max-h-52 [scrollbar-width:thin] space-y-3 overflow-y-auto text-sm">
-          {turns.map((t, i) => (
-            <p
-              key={i}
-              className={`m-0 rounded-lg px-2.5 py-1.5 whitespace-pre-wrap ${
-                t.role === 'user' ? 'bg-ink/5 text-ink' : 'bg-accent/10 text-ink'
-              }`}
-            >
-              <span className="mb-0.5 block text-[11px] font-semibold tracking-wide text-muted uppercase">
-                {t.role === 'user' ? 'Moi' : 'Claude'}
-              </span>
-              {t.actions?.map((a) => (
-                <span key={a} className="mb-1 block text-xs text-muted">
-                  ✅ {a}
+      {(turns.length > 0 || busy) && (
+        <div className="mb-2 flex max-h-72 [scrollbar-width:thin] flex-col gap-1.5 overflow-y-auto rounded-xl bg-[#efeae2] p-2 text-sm">
+          {turns.map((t, i) => {
+            const mine = t.role === 'user';
+            return (
+              <div
+                key={i}
+                className={`max-w-[85%] rounded-lg px-2.5 py-1.5 whitespace-pre-wrap text-[#111b21] shadow-sm ${
+                  mine
+                    ? 'self-end rounded-tr-none bg-[#d9fdd3]'
+                    : 'self-start rounded-tl-none bg-white'
+                }`}
+              >
+                {!mine && (
+                  <span className="mb-0.5 block text-xs font-semibold text-[#06795f]">Claude</span>
+                )}
+                {t.actions?.map((a) => (
+                  <span key={a} className="mb-1 block text-xs text-[#667781]">
+                    ✅ {a}
+                  </span>
+                ))}
+                {t.content}
+                <span className="mt-0.5 block text-right text-[10px] text-[#667781]">
+                  {timeOf(t.at)}
                 </span>
-              ))}
-              {t.content}
-            </p>
-          ))}
-          {busy && <p className="m-0 px-2.5 text-xs text-muted">Claude réfléchit…</p>}
+              </div>
+            );
+          })}
+          {busy && (
+            <div className="max-w-[85%] self-start rounded-lg rounded-tl-none bg-white px-2.5 py-1.5 text-xs text-[#667781] shadow-sm">
+              Claude écrit…
+            </div>
+          )}
           <div ref={end} />
         </div>
       )}

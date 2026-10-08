@@ -103,7 +103,7 @@ export const BookDetail = ({
             }
           />
         </div>
-        <div>
+        <div className="col-span-3">
           <label htmlFor="detailIsbn" className={LABEL}>
             ISBN :
           </label>

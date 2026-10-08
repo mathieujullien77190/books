@@ -7,7 +7,6 @@ import SearchBar from '@/components/SearchBar';
 import MissingBar from '@/components/ToBuyList/MissingBar';
 import ToBuyList from '@/components/ToBuyList';
 import Button from '@/components/ui/Button';
-import IconButton from '@/components/ui/IconButton';
 import LoadingOverlay from '@/components/ui/LoadingOverlay';
 import Toast from '@/components/ui/Toast';
 
@@ -73,14 +72,15 @@ export const CratesApp = ({ className = '' }: CratesAppProps) => {
         <DesktopLayout {...layout} />
       )}
       {!bg && (
-        <IconButton
-          className={`fixed right-4 bottom-4 z-10 h-11 w-11 bg-white/90 text-xl backdrop-blur-md ${FLOAT_SHADOW} ${snap.lite ? 'border-ink' : ''}`}
-          label="Turbo : livres en pavés de couleur, plus fluide"
-          aria-pressed={snap.lite}
+        <Button
+          className={`fixed right-4 bottom-4 z-10 h-11 rounded-full px-4 backdrop-blur-md ${FLOAT_SHADOW} ${snap.lite ? '' : 'bg-white/90'}`}
+          variant={snap.lite ? 'active' : 'default'}
+          pressed={snap.lite}
+          title="Livres en pavés de couleur, sans caisses, mésange ni ombres : plus fluide sur un petit appareil"
           onClick={() => engine?.setLite(!snap.lite)}
         >
-          ⚡
-        </IconButton>
+          ⚡ Mode léger{snap.lite ? ' : activé' : ''}
+        </Button>
       )}
       {snap.loadError && !snap.loading && (
         <div

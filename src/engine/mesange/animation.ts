@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 
+import { createLegPlanter } from './legs';
+
 /**
  * Comportement de la mésange, repris de l'atelier lowpoly (customRigTick) : elle reste sur son perchoir
  * (pas de marche) et alterne regard par saccades, coups de queue, picotis,
@@ -51,6 +53,7 @@ export const createMesangeAnimator = (
   };
   const wingAxes = wings.map(axisOf);
   if (body) body.rotation.order = 'YXZ';
+  const plantFeet = createLegPlanter(root, legs);
 
   let mode: Mode = 'idle';
   let timer = 0.6 + rnd() * 1.4;
@@ -134,22 +137,15 @@ export const createMesangeAnimator = (
       }
     }
 
-    let rx = 0;
     let rz = 0;
     if (body) {
       body.position.y = baseY; // jamais de rebond : les pattes restent posées sur la caisse
       body.rotation.x += (pitch - body.rotation.x) * k(16);
       body.rotation.z += ((mode === 'idle' ? lean : 0) - body.rotation.z) * k(7);
-      rx = body.rotation.x;
       rz = body.rotation.z;
     }
-    // Les pattes restent presque verticales quand le corps bascule ou penche ; le genou plie à l'accroupi.
-    for (const lg of legs) {
-      if (lg.thigh) {
-        lg.thigh.rotation.x = -rx;
-        lg.thigh.rotation.z = -0.7 * rz;
-      }
-    }
+    // les pattes restent posées : seules la cuisse et la jambe pivotent par leurs rotules
+    plantFeet();
     if (tail) {
       tail.rotation.x += (tailX - tail.rotation.x) * k(14);
       const hy = head ? head.rotation.y : 0;

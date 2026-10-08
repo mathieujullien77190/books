@@ -100,7 +100,7 @@ const MESANGE_MARGIN = 0.2;
 const MESANGE_SINK = 0.24;
 /** Taille du volume autour duquel s'affichent les flèches, et pas d'un clic de flèche. */
 const MESANGE_REACH = { x: 0.8, y: 1.2, z: 0.8 };
-const MESANGE_STEP = 0.1;
+const MESANGE_STEP = 0.02;
 
 /** Apparition des livres au chargement : nombre de livres par vague et délai entre deux vagues. */
 const REVEAL_BATCH = 12;
@@ -996,7 +996,7 @@ export class CrateEngine {
   private stepMesange(axis: RotAxis, sign: 1 | -1): void {
     const m = this.decor.mesange;
     const key = axis === 'x' ? 'dx' : axis === 'y' ? 'dy' : 'dz';
-    m[key] = Math.round((m[key] + sign * MESANGE_STEP) * 100) / 100;
+    m[key] = Math.round((m[key] + sign * MESANGE_STEP) * 1000) / 1000;
     this.placeDecor();
     this.save();
     this.emit();

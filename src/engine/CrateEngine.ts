@@ -28,6 +28,7 @@ import { applyGravity, crateBounds, nextStepPosition, type Bounds } from './crat
 import { NEIGHBOR_SCALE, OPEN_BOOK_SCALE } from './constants';
 import { buildCrate, forgetCrateLabel, setCrateLabel, uprightLabel, type CrateRig } from './crate';
 import { Decor } from './decor';
+import { buildGroundText } from './groundText';
 import { History } from './history';
 import { PointerInput } from './input';
 import { layoutBooks } from './layout';
@@ -138,6 +139,8 @@ export class CrateEngine {
   // vecteurs de travail
   private readonly _tv = new THREE.Vector3();
   private birdLabel: HTMLElement | null = null;
+  /** Consigne peinte au sol devant les caisses (fond de bureau seulement). */
+  private groundText: THREE.Mesh | null = null;
   private readonly _box = new THREE.Box3();
 
   /** `transparent` : fond et sol invisibles (seules les ombres restent), pour la poser sur un autre décor. */
@@ -194,6 +197,10 @@ export class CrateEngine {
     sun.shadow.bias = -0.0005;
     this.scene.add(sun);
     this.scene.add(this.buildGround());
+    if (transparent) {
+      this.groundText = buildGroundText('molette enfoncée : tourner · clic droit : déplacer');
+      this.scene.add(this.groundText);
+    }
     this.scene.add(this.booksGroup);
     this.scene.add(this.missing.group);
     this.axes = buildWorldAxes();
@@ -338,6 +345,10 @@ export class CrateEngine {
   }
 
   private placeDecor(): void {
+    if (this.groundText) {
+      const b = this.bounds();
+      this.groundText.position.set(b.cx, 0.02, b.maxZ + 1.6);
+    }
     this.decor.place(this.crates, {
       selectedId: this.selectedId,
       mode: this.mode,
@@ -736,6 +747,10 @@ export class CrateEngine {
   dispose(): void {
     this.disposed = true;
     this.decor.disposeBird(this.scene);
+    if (this.groundText) {
+      this.scene.remove(this.groundText);
+      disposeGroup(this.groundText);
+    }
     cancelAnimationFrame(this.raf);
     window.clearTimeout(this.texTimer);
     this.resizeObserver.disconnect();

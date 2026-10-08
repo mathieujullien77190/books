@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 560" width="1000" height="560" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
+  <title>Déploiement et environnement</title>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#1f2a37"/>
+    </marker>
+  </defs>
+  <rect width="1000" height="560" fill="#ffffff"/>
+
+  <!-- dépôt -->
+  <rect x="30" y="40" width="200" height="140" rx="12" fill="#f3f7fb" stroke="#9db3c8" stroke-width="1.5"/>
+  <text x="130" y="68" font-size="14" font-weight="700" text-anchor="middle" fill="#1f2a37">Dépôt GitHub</text>
+  <g font-size="12" fill="#5b6b7c" text-anchor="middle">
+    <text x="130" y="94">branche main</text>
+    <text x="130" y="112">code, README, docs</text>
+    <text x="130" y="130">public/covers (WebP)</text>
+    <text x="130" y="148">public/mesange (glb)</text>
+  </g>
+
+  <!-- Vercel -->
+  <rect x="330" y="40" width="330" height="330" rx="12" fill="#f3f7fb" stroke="#9db3c8" stroke-width="1.5"/>
+  <text x="495" y="68" font-size="14" font-weight="700" text-anchor="middle" fill="#1f2a37">Vercel · projet books-mathieu-jullien</text>
+  <rect x="352" y="86" width="286" height="76" rx="9" fill="#ffffff" stroke="#1f2a37"/>
+  <text x="495" y="110" font-size="13" font-weight="700" text-anchor="middle" fill="#1f2a37">Build Next.js (next build)</text>
+  <text x="495" y="130" font-size="12" text-anchor="middle" fill="#5b6b7c">à chaque push sur main</text>
+  <text x="495" y="148" font-size="12" text-anchor="middle" fill="#5b6b7c">page unique + 5 routes API (fonctions)</text>
+  <rect x="352" y="176" width="286" height="76" rx="9" fill="#ffffff" stroke="#1f2a37"/>
+  <text x="495" y="200" font-size="13" font-weight="700" text-anchor="middle" fill="#1f2a37">Fichiers statiques</text>
+  <text x="495" y="220" font-size="12" text-anchor="middle" fill="#5b6b7c">Cache-Control : 1 jour (covers, mesange)</text>
+  <text x="495" y="238" font-size="12" text-anchor="middle" fill="#5b6b7c">+ stale-while-revalidate 7 jours</text>
+  <rect x="352" y="266" width="286" height="88" rx="9" fill="#fff7ec" stroke="#b5651d"/>
+  <text x="495" y="290" font-size="13" font-weight="700" text-anchor="middle" fill="#1f2a37">Variables d'environnement</text>
+  <g font-size="12" fill="#1f2a37" text-anchor="middle">
+    <text x="495" y="310">MONGODB_URI · MONGODB_DB</text>
+    <text x="495" y="328">EDIT_CODE · EDIT_SECRET</text>
+    <text x="495" y="346" fill="#5b6b7c">jamais dans le dépôt (.env.local ignoré)</text>
+  </g>
+
+  <!-- navigateur -->
+  <rect x="30" y="250" width="200" height="120" rx="12" fill="#ffffff" stroke="#1f2a37" stroke-width="1.5"/>
+  <text x="130" y="278" font-size="14" font-weight="700" text-anchor="middle" fill="#1f2a37">Navigateur</text>
+  <g font-size="12" fill="#5b6b7c" text-anchor="middle">
+    <text x="130" y="302">localStorage :</text>
+    <text x="130" y="320">edit-token, lite-mode,</text>
+    <text x="130" y="338">clé API Anthropic</text>
+    <text x="130" y="356">(jamais envoyées au dépôt)</text>
+  </g>
+
+  <!-- services -->
+  <rect x="760" y="40" width="210" height="130" rx="12" fill="#eaf5ea" stroke="#4a8a4a" stroke-width="1.5"/>
+  <text x="865" y="68" font-size="14" font-weight="700" text-anchor="middle" fill="#1f2a37">MongoDB Atlas</text>
+  <g font-size="12" fill="#5b6b7c" text-anchor="middle">
+    <text x="865" y="94">crates · books</text>
+    <text x="865" y="112">meta : state (rev), decor</text>
+    <text x="865" y="130">edit_attempts (essais ratés)</text>
+    <text x="865" y="148">liste d'accès réseau d'Atlas</text>
+  </g>
+  <rect x="760" y="230" width="210" height="100" rx="12" fill="#fdf0f0" stroke="#b04a4a" stroke-width="1.5"/>
+  <text x="865" y="258" font-size="14" font-weight="700" text-anchor="middle" fill="#1f2a37">API Anthropic</text>
+  <g font-size="12" fill="#5b6b7c" text-anchor="middle">
+    <text x="865" y="284">appelée avec la clé de la personne</text>
+    <text x="865" y="302">modèles Haiku (défaut), Sonnet, Opus</text>
+  </g>
+
+  <g stroke="#1f2a37" stroke-width="1.6" fill="none" marker-end="url(#a)">
+    <path d="M230 110 H330"/>
+    <path d="M638 124 H760"/>
+    <path d="M230 300 H330" />
+    <path d="M660 280 H760"/>
+  </g>
+  <g font-size="11.5" fill="#1f2a37">
+    <text x="240" y="102">push → build</text>
+    <text x="648" y="116">lecture / écriture</text>
+    <text x="240" y="292">HTTPS</text>
+    <text x="668" y="272">POST /api/ai</text>
+  </g>
+
+  <!-- en-têtes -->
+  <rect x="330" y="400" width="640" height="130" rx="12" fill="#f3f7fb" stroke="#9db3c8" stroke-width="1.5"/>
+  <text x="350" y="428" font-size="14" font-weight="700" fill="#1f2a37">En-têtes et limites à connaître</text>
+  <g font-size="12" fill="#1f2a37">
+    <text x="350" y="452">• Content-Security-Policy : frame-ancestors liste les sites qui peuvent afficher la bibliothèque (iframe).</text>
+    <text x="350" y="472">• /api/ai : maxDuration 60 s (offre Hobby) ; 20 tours, 4 000 caractères, 5 étapes d'outils au plus.</text>
+    <text x="350" y="492">• /api/edit : limite d'essais ratés par adresse (429 au-delà), comparaison du code en temps constant.</text>
+    <text x="350" y="512">• Sans EDIT_CODE : Édition désactivée (503), aucun jeton valide.</text>
+  </g>
+</svg>

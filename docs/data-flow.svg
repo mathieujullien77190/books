@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 800" width="1000" height="800" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
+  <title>Cycle de vie des données : chargement et sauvegarde</title>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#1f2a37"/>
+    </marker>
+    <marker id="r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#b04a4a"/>
+    </marker>
+  </defs>
+  <rect width="1000" height="800" fill="#ffffff"/>
+
+  <!-- acteurs -->
+  <g font-size="14" font-weight="700" fill="#1f2a37" text-anchor="middle">
+    <rect x="30" y="20" width="150" height="46" rx="9" fill="#ffffff" stroke="#1f2a37" stroke-width="1.5"/>
+    <text x="105" y="48">Interface React</text>
+    <rect x="240" y="20" width="170" height="46" rx="9" fill="#fff7ec" stroke="#b5651d" stroke-width="1.5"/>
+    <text x="325" y="48">CrateEngine</text>
+    <rect x="490" y="20" width="200" height="46" rx="9" fill="#f3f7fb" stroke="#9db3c8" stroke-width="1.5"/>
+    <text x="590" y="48">Routes /api</text>
+    <rect x="780" y="20" width="190" height="46" rx="9" fill="#eaf5ea" stroke="#4a8a4a" stroke-width="1.5"/>
+    <text x="875" y="48">MongoDB</text>
+  </g>
+  <g stroke="#9db3c8" stroke-width="1.2" stroke-dasharray="5 5">
+    <line x1="105" y1="66" x2="105" y2="780"/>
+    <line x1="325" y1="66" x2="325" y2="780"/>
+    <line x1="590" y1="66" x2="590" y2="780"/>
+    <line x1="875" y1="66" x2="875" y2="780"/>
+  </g>
+
+  <!-- chargement -->
+  <rect x="14" y="84" width="972" height="262" rx="10" fill="#f3f7fb" opacity="0.7"/>
+  <text x="26" y="106" font-size="13" font-weight="700" fill="#5b6b7c">CHARGEMENT</text>
+  <g stroke="#1f2a37" stroke-width="1.6" fill="none" marker-end="url(#a)">
+    <path d="M105 128 H325"/>
+    <path d="M325 156 H590"/>
+    <path d="M590 184 H875"/>
+    <path d="M875 212 H590"/>
+    <path d="M590 240 H325"/>
+    <path d="M325 276 H325" stroke-width="0"/>
+  </g>
+  <g font-size="12" fill="#1f2a37">
+    <text x="115" y="121">création du moteur (canvas)</text>
+    <text x="335" y="149">GET /api/state</text>
+    <text x="600" y="177">lit crates, books, meta.rev, décor</text>
+    <text x="600" y="205">documents triés par `order`</text>
+    <text x="335" y="233">{ crates, books, rev, decor }</text>
+  </g>
+  <rect x="225" y="262" width="200" height="60" rx="8" fill="#ffffff" stroke="#b5651d"/>
+  <g font-size="12" fill="#1f2a37" text-anchor="middle">
+    <text x="325" y="282">restore : scène légère d'abord</text>
+    <text x="325" y="298">warm-up GPU derrière l'indicateur</text>
+    <text x="325" y="314">puis montée en mode complet</text>
+  </g>
+  <path d="M325 322 V338" stroke="#1f2a37" stroke-width="1.6" marker-end="url(#a)"/>
+  <path d="M325 338 H105" stroke="#1f2a37" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+  <text x="115" y="331" font-size="12" fill="#1f2a37">snapshot : indicateur retiré</text>
+
+  <!-- modification -->
+  <rect x="14" y="362" width="972" height="414" rx="10" fill="#fff7ec" opacity="0.6"/>
+  <text x="26" y="384" font-size="13" font-weight="700" fill="#5b6b7c">MODIFICATION (Édition déverrouillée)</text>
+  <g stroke="#1f2a37" stroke-width="1.6" fill="none" marker-end="url(#a)">
+    <path d="M105 410 H325"/>
+    <path d="M325 470 H590"/>
+    <path d="M590 512 H875"/>
+    <path d="M590 556 H875"/>
+    <path d="M875 596 H590"/>
+    <path d="M590 640 H325"/>
+  </g>
+  <g font-size="12" fill="#1f2a37">
+    <text x="115" y="403">déplacer une caisse, éditer une fiche…</text>
+    <text x="335" y="463">POST /api/sync { rev, token, crates, books, decor }</text>
+    <text x="600" y="505">1. isEditToken(token) puis claimRev : rev → rev + 1</text>
+    <text x="600" y="549">2. replaceAll : upsert par `id`, suppression du reste</text>
+    <text x="600" y="589">ok</text>
+    <text x="335" y="633">{ ok: true, rev + 1 }</text>
+    <text x="335" y="672">le moteur garde rev et le dernier état envoyé</text>
+  </g>
+  <rect x="180" y="420" width="290" height="34" rx="8" fill="#ffffff" stroke="#b5651d"/>
+  <text x="325" y="441" font-size="12" text-anchor="middle" fill="#1f2a37">pushHistory() puis refresh() ; save() débattu 800 ms</text>
+
+  <!-- conflit -->
+  <rect x="640" y="672" width="330" height="92" rx="8" fill="#fdf0f0" stroke="#b04a4a"/>
+  <text x="805" y="694" font-size="12.5" font-weight="700" text-anchor="middle" fill="#1f2a37">Conflit : rev périmée (autre onglet, script)</text>
+  <g font-size="11.5" fill="#1f2a37">
+    <text x="652" y="714">/api/sync répond { ok: false, reason: 'conflict' }</text>
+    <text x="652" y="730">sans rien écrire ; le moteur recharge (hydrate(false))</text>
+    <text x="652" y="746">au lieu d'écraser la base ; rien n'est envoyé tant que</text>
+    <text x="652" y="760">la base n'est pas relue (`hydrated`)</text>
+  </g>
+</svg>

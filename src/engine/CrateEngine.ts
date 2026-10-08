@@ -196,6 +196,8 @@ export class CrateEngine {
   /** Caisse sous le pointeur au clic en lecture : un clic simple zoome dessus. */
   private downCrate: Id | null = null;
   private crateClickZoom = true;
+  /** Doigts actuellement posés : à deux, c'est un pincement (zoom), jamais un clic sur un livre. */
+  private readonly touchIds = new Set<number>();
   private readonly rotGizmo: RotateGizmo;
   private readonly moveGizmo: MoveGizmo;
   /** États précédents pour « Annuler » (le plus récent en dernier). */
@@ -1175,8 +1177,26 @@ export class CrateEngine {
     return this.booksGroup.children.filter((m) => m.visible);
   }
 
+  /** Abandonne le geste en cours sur un livre ou une caisse et rend la main à la caméra (pincement). */
+  private cancelGesture(): void {
+    this.dragBook = null;
+    this.drag = null;
+    this.downEmpty = null;
+    this.downCrate = null;
+    this.controls.enabled = true;
+    this.canvas.style.cursor = '';
+  }
+
   private readonly onPointerDown = (e: PointerEvent): void => {
     if (e.button !== 0) return;
+    if (e.pointerType === 'touch') {
+      this.touchIds.add(e.pointerId);
+      if (this.touchIds.size > 1) {
+        // deuxième doigt : on lâche le livre ou la caisse visés par le premier, la caméra zoome
+        this.cancelGesture();
+        return;
+      }
+    }
     this.setPointer(e);
     this.raycaster.setFromCamera(this.pointer, this.camera);
     // flèches : déplacement d'un cran, ou quart de tour dans le sens de la flèche
@@ -1232,8 +1252,11 @@ export class CrateEngine {
       const rig = this.bookRigs.get(id);
       if (b && rig) {
         this.dragBook = { b, dragged: false, sx: e.clientX, sy: e.clientY };
-        this.controls.enabled = false;
-        this.canvas.setPointerCapture(e.pointerId);
+        // au doigt, la caméra reste active : sinon un pincement posé sur un livre ne zoomerait pas
+        if (e.pointerType !== 'touch') {
+          this.controls.enabled = false;
+          this.canvas.setPointerCapture(e.pointerId);
+        }
         return;
       }
     }
@@ -1270,7 +1293,7 @@ export class CrateEngine {
       // un livre ne se déplace pas : un glisser est signalé une fois (« pas touche ») et ignoré
       if (!db.dragged && Math.hypot(e.clientX - db.sx, e.clientY - db.sy) >= 5) {
         db.dragged = true;
-        this.onEditDenied?.();
+        if (e.pointerType !== 'touch') this.onEditDenied?.(); // au doigt, un glisser est un déplacement de la vue
       }
       return;
     }
@@ -1295,6 +1318,7 @@ export class CrateEngine {
   };
 
   private readonly onPointerUp = (e: PointerEvent): void => {
+    this.touchIds.delete(e.pointerId);
     const db = this.dragBook;
     if (db) {
       try {

@@ -25,6 +25,13 @@ export const CratesApp = ({ className = '' }: CratesAppProps) => {
   const engine = holder.engine;
   const phone = useIsPhone();
   const bg = useEmbedMode() === 'bg'; // fond du bureau d'AOC : scène seule
+  // fond du bureau : page transparente pour laisser voir le bureau d'AOC derrière la scène
+  useEffect(() => {
+    if (!bg) return;
+    const els = [document.documentElement, document.body];
+    els.forEach((el) => el.style.setProperty('background', 'transparent'));
+    return () => els.forEach((el) => el.style.removeProperty('background'));
+  }, [bg]);
   const { lock, toast } = useEditLock(engine, snap.mode);
   useEffect(() => {
     engine?.setCrateClickZoom(!phone); // téléphone : plus de zoom au toucher d'une caisse, seulement au pincement

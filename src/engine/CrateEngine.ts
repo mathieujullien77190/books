@@ -138,9 +138,13 @@ export class CrateEngine {
   // vecteurs de travail
   private readonly _tv = new THREE.Vector3();
 
-  constructor(canvas: HTMLCanvasElement) {
+  /** `transparent` : fond et sol invisibles (seules les ombres restent), pour la poser sur un autre décor. */
+  constructor(
+    canvas: HTMLCanvasElement,
+    private readonly transparent = false,
+  ) {
     this.canvas = canvas;
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: transparent });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFShadowMap;
@@ -151,7 +155,7 @@ export class CrateEngine {
     this.aniso = renderer.capabilities.getMaxAnisotropy();
     this.missing = new MissingPile(this.aniso);
 
-    this.scene.background = new THREE.Color(SCENE_BG);
+    this.scene.background = transparent ? null : new THREE.Color(SCENE_BG);
     const pmrem = new THREE.PMREMGenerator(renderer);
     this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
     pmrem.dispose();
@@ -751,7 +755,9 @@ export class CrateEngine {
   private buildGround(): THREE.Mesh {
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(100, 100),
-      new THREE.MeshStandardMaterial({ color: 0xa9c29a, roughness: 1, envMapIntensity: 0.3 }),
+      this.transparent
+        ? new THREE.ShadowMaterial({ opacity: 0.25 })
+        : new THREE.MeshStandardMaterial({ color: 0xa9c29a, roughness: 1, envMapIntensity: 0.3 }),
     );
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;

@@ -28,7 +28,10 @@ const createHolder = (): EngineHolder => {
     },
     mountCanvas: (el) => {
       if (!el || engine) return undefined; // déjà monté : ne jamais recréer le moteur
-      const e = new CrateEngine(el);
+      const e = new CrateEngine(
+        el,
+        new URLSearchParams(window.location.search).get('embed') === 'bg',
+      );
       setEngine(e);
       return () => {
         e.dispose();

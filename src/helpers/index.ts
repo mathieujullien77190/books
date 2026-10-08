@@ -63,7 +63,7 @@ export const parseVolume = (title: string): Volume | null => {
     const num = +mn[2]!;
     return { prefix: mn[1]!.trim(), num, last: mn[3] ? +mn[3] : num, mark: 'n°' };
   }
-  const m2 = title.match(/^(.*?)\s+0*(\d+)$/);
+  const m2 = title.match(/^(.*?)\s+0*(\d+)(?:\s*[–-].*)?$/);
   if (m2 && m2[1]!.length > 2)
     return { prefix: m2[1]!.trim(), num: +m2[2]!, last: +m2[2]!, mark: 'T' };
   return null;

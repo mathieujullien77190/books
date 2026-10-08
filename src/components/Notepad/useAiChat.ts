@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { EDIT_TOKEN_KEY, readStorage } from '@/components/shared';
 
@@ -13,10 +13,16 @@ type Options = {
   onChanged?: () => void;
 };
 
+/** Dernière conversation : elle survit à la fermeture du panneau (ou de la feuille du téléphone) tant que la page reste ouverte. */
+let savedTurns: AiTurn[] = [];
+
 /** Conversation avec Claude : tours, question en cours, attente et erreur. */
 export const useAiChat = ({ apiKey, model, onChanged }: Options) => {
   const [question, setQuestion] = useState('');
-  const [turns, setTurns] = useState<AiTurn[]>([]);
+  const [turns, setTurns] = useState<AiTurn[]>(() => savedTurns);
+  useEffect(() => {
+    savedTurns = turns;
+  }, [turns]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 

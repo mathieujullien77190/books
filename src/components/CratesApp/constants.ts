@@ -5,6 +5,7 @@ export const EMPTY_SNAPSHOT: Snapshot = {
   crates: [],
   books: [],
   messy: false,
+  loading: true,
   selectedId: null,
   openId: null,
   openSide: 'front',

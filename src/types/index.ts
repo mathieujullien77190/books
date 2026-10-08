@@ -81,6 +81,8 @@ export type Snapshot = {
   crates: Crate[];
   books: Book[];
   messy: boolean;
+  /** Premier chargement en cours : indicateur affiché, scène pas encore montrée. */
+  loading: boolean;
   selectedId: Id | null;
   openId: Id | null;
   /** Face visible du livre sorti : couverture ou dos (résumé). */

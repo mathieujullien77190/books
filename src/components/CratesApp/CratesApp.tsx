@@ -231,6 +231,16 @@ export const CratesApp = ({ className = '' }: CratesAppProps) => {
       >
         🎯
       </Button>
+      {snap.loading && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-[#dfe8f2]/90 text-ink backdrop-blur-sm"
+        >
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-ink/15 border-t-accent" />
+          <p className="m-0 text-sm font-medium">Chargement de la bibliothèque…</p>
+        </div>
+      )}
       {toast && (
         <div
           role="status"

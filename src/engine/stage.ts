@@ -105,6 +105,11 @@ export class Stage {
     this.dirty = true;
   }
 
+  /** Écran en portrait (téléphone) : un seul livre est présenté, sans voisins. */
+  isPortrait(): boolean {
+    return this.camera.aspect < 1;
+  }
+
   /** Sol plat, uni. */
   private buildGround(): THREE.Mesh {
     const ground = new THREE.Mesh(

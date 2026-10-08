@@ -17,12 +17,12 @@ import type {
 import { applyBookPatch, type BookPatch } from './bookPatch';
 import {
   disposeBookRig,
-  ensureCover,
   makeBookRig,
   setBookResolution,
   updateBookTextures,
   type BookRig,
 } from './books';
+import { OpenBook } from './openBook';
 import { OPEN_BOOK_SCALE } from './constants';
 import { CrateRigs } from './crateRigs';
 import { crateBounds, nextStepPosition, type Bounds } from './cratePlacement';
@@ -38,7 +38,7 @@ import { MissingPile } from './missingPile';
 import { Q_TRANCHE, rotatedQuat } from './orientation';
 import { Persistence } from './persistence';
 import { Stage } from './stage';
-import { Showcase, focusCrateView, recenterView } from './view';
+import { focusCrateView, recenterView } from './view';
 
 export type { BookPatch };
 
@@ -62,16 +62,10 @@ export class CrateEngine {
   private crates: Crate[] = [];
   private books: Book[] = [];
   private selectedId: Id | null = null;
-  /** Résultats d'une recherche présentés l'un après l'autre (précédent / suivant) ; null : voisins de la caisse. */
-  private resultIds: Id[] | null = null;
-  private openId: Id | null = null;
-  /** Face visible du livre sorti : false = couverture, true = dos (résumé). */
-  private openBack = false;
+  private readonly opened: OpenBook;
   private counts = new Map<Id, number>();
   private stats = { stored: 0, loose: 0, full: 0 };
 
-  /** Voisins du livre sorti, animation de sortie et position flottante devant la caméra. */
-  private readonly showcase = new Showcase();
   private readonly decor = new Decor();
   /** Vrai jusqu'à la fin du premier chargement : l'interface affiche un indicateur. */
   private loading = true;
@@ -128,12 +122,25 @@ export class CrateEngine {
     this.crateRigs = new CrateRigs(stage.scene, {
       crates: () => this.crates,
       selectedId: () => this.selectedId,
-      openId: () => this.openId,
+      openId: () => this.opened.id,
       mode: () => this.mode,
       lite: () => this.display.lite,
       bounds: () => this.bounds(),
     });
     stage.scene.add(this.decor.gizmo.group);
+    this.opened = new OpenBook({
+      books: () => this.books,
+      bookRigs: this.bookRigs,
+      hasCrate: (id) => this.crateRigs.rigs.has(id),
+      aniso: stage.aniso,
+      isPortrait: () => stage.isPortrait(),
+      clearHint: () => {
+        this.crateRigs.hintId = null;
+      },
+      layoutBooks: () => this.layoutBooks(),
+      refresh: () => this.refresh(),
+      emit: () => this.emit(),
+    });
     this.display = new DisplayMode({
       isDisposed: () => this.disposed,
       transparent,
@@ -143,7 +150,7 @@ export class CrateEngine {
       crateRigs: this.crateRigs.rigs,
       bookRigs: this.bookRigs,
       books: () => this.books,
-      openId: () => this.openId,
+      openId: () => this.opened.id,
       touch: () => stage.touch(),
       syncGhosts: () => this.syncGhosts(),
       refresh: () => this.refresh(),
@@ -166,8 +173,8 @@ export class CrateEngine {
       setSelected: (id) => {
         this.selectedId = id;
       },
-      openId: () => this.openId,
-      neighbors: () => this.showcase.neighbors,
+      openId: () => this.opened.id,
+      neighbors: () => this.opened.showcase.neighbors,
       crates: () => this.crates,
       crateById: (id) => this.crate(id),
       bookById: (id) => this.books.find((b) => b.id === id),
@@ -199,15 +206,15 @@ export class CrateEngine {
     this.recenter();
     this.loop = new RenderLoop({
       stage,
-      showcase: this.showcase,
+      showcase: this.opened.showcase,
       missing: this.missing,
       decor: this.decor,
       canvas,
       bookRigs: this.bookRigs,
-      openId: () => this.openId,
-      openBack: () => this.openBack,
-      isPortrait: () => this.isPortrait(),
-      finishExit: () => this.finishExit(),
+      openId: () => this.opened.id,
+      openBack: () => this.opened.back,
+      isPortrait: () => stage.isPortrait(),
+      finishExit: () => this.opened.finishExit(),
       hovered: () => this.input.hovered,
       updateHover: () => this.input.updateHover(),
     });
@@ -246,14 +253,14 @@ export class CrateEngine {
       loadError: this.loadError,
       lite: this.display.choice,
       selectedId: this.selectedId,
-      openId: this.openId,
-      openSide: this.openBack ? 'back' : 'front',
+      openId: this.opened.id,
+      openSide: this.opened.back ? 'back' : 'front',
       counts: Object.fromEntries(this.counts),
       ...this.stats,
       canUndo: this.history.canUndo,
-      browsing: this.resultIds !== null,
-      hasPrev: !!this.showcase.neighbors[0],
-      hasNext: !!this.showcase.neighbors[1],
+      browsing: this.opened.resultIds !== null,
+      hasPrev: !!this.opened.showcase.neighbors[0],
+      hasNext: !!this.opened.showcase.neighbors[1],
       missingBrowse: this.missing.current,
       mode: this.mode,
     };
@@ -304,7 +311,7 @@ export class CrateEngine {
 
   private refresh(): void {
     this.dataDirty = true;
-    this.updateNeighbors();
+    this.opened.updateNeighbors();
     this.crateRigs.place();
     this.layoutBooks();
     this.placeDecor();
@@ -323,7 +330,7 @@ export class CrateEngine {
     this.decor.place(this.crates, {
       selectedId: this.selectedId,
       mode: this.mode,
-      openId: this.openId,
+      openId: this.opened.id,
       lite: this.display.lite,
     });
   }
@@ -454,7 +461,7 @@ export class CrateEngine {
   // ---------- API publique : livres ----------
   removeBook(id: Id): void {
     this.pushHistory();
-    if (this.openId === id) this.closeBook(false);
+    if (this.opened.id === id) this.closeBook(false);
     this.books = this.books.filter((b) => b.id !== id);
     const rig = this.bookRigs.get(id);
     if (rig) {
@@ -480,7 +487,7 @@ export class CrateEngine {
         const rig = this.bookRigs.get(id);
         if (!rig) return;
         updateBookTextures(rig, b, this.stage.aniso);
-        if (this.openId === id) setBookResolution(rig, b, this.stage.aniso, OPEN_BOOK_SCALE);
+        if (this.opened.id === id) setBookResolution(rig, b, this.stage.aniso, OPEN_BOOK_SCALE);
       }, 250);
     }
     this.dataDirty = true;
@@ -489,109 +496,26 @@ export class CrateEngine {
   }
 
   openBook(id: Id): void {
-    if (this.openId && this.openId !== id) this.closeBook(false);
-    const rig = this.bookRigs.get(id);
-    if (!rig) return;
-    this.openId = id;
-    this.openBack = false; // toujours la couverture d'abord
-    rig.mesh.layers.set(1);
-    rig.mesh.castShadow = false;
-    const book = this.books.find((b) => b.id === id);
-    if (book) setBookResolution(rig, book, this.stage.aniso, OPEN_BOOK_SCALE);
-    this.refresh();
-  }
-
-  /** Recalcule les voisins du livre sorti et les fait passer au premier plan (couche 1). */
-  private updateNeighbors(): void {
-    const open = this.openId ? this.books.find((b) => b.id === this.openId) : undefined;
-    let next: [Id | null, Id | null] = [null, null];
-    if (open) {
-      const stored = (b: Book): boolean => !!b.crate && this.crateRigs.rigs.has(b.crate);
-      const list = this.resultIds?.includes(open.id)
-        ? this.resultIds.flatMap((id) => this.books.find((b) => b.id === id) ?? [])
-        : this.books.filter((b) => (stored(open) ? b.crate === open.crate : !stored(b)));
-      const i = list.indexOf(open);
-      next = [list[i - 1]?.id ?? null, list[i + 1]?.id ?? null];
-    }
-    for (const id of this.showcase.neighbors) {
-      const rig = id && !next.includes(id) && this.bookRigs.get(id);
-      if (!rig) continue;
-      rig.mesh.layers.set(0);
-      rig.mesh.castShadow = true;
-    }
-    for (const id of next) {
-      const rig = id && this.bookRigs.get(id);
-      if (!rig || this.isPortrait()) continue;
-      const nb = this.books.find((k) => k.id === id);
-      if (nb) ensureCover(rig, nb, this.stage.aniso, true);
-      rig.mesh.layers.set(1);
-      rig.mesh.castShadow = false;
-    }
-    this.showcase.neighbors = next;
+    this.opened.open(id);
   }
 
   /** Retourne le livre sorti : couverture ↔ dos (résumé). */
   flipBook(): void {
-    if (!this.openId) return;
-    this.openBack = !this.openBack;
-    this.emit();
+    this.opened.flip();
   }
 
   closeBook(doRefresh = true): void {
-    const rig = this.openId ? this.bookRigs.get(this.openId) : undefined;
-    if (rig && rig !== this.showcase.exiting?.rig) {
-      rig.mesh.layers.set(0);
-      rig.mesh.castShadow = true;
-      const book = this.books.find((b) => b.id === this.openId);
-      if (book) setBookResolution(rig, book, this.stage.aniso, 1);
-    }
-    this.openId = null;
-    this.crateRigs.hintId = null;
-    if (doRefresh) this.resultIds = null;
-    if (doRefresh) this.refresh();
+    this.opened.close(doRefresh);
   }
 
   /** Présente les résultats d'une recherche : ouvre le premier, précédent / suivant parcourent la liste. */
   showBooks(ids: Id[]): void {
-    const first = ids[0];
-    if (!first) return;
-    this.resultIds = ids;
-    this.openBook(first);
-  }
-
-  /** Écran en portrait (téléphone) : un seul livre est présenté, sans voisins. */
-  private isPortrait(): boolean {
-    return this.stage.camera.aspect < 1;
+    this.opened.showResults(ids);
   }
 
   /** Passe au livre précédent (-1) ou suivant (1) : voisins de la caisse ou résultats de la recherche. */
   stepBook(dir: -1 | 1): void {
-    const id = this.showcase.neighbors[dir < 0 ? 0 : 1];
-    if (!id) return;
-    const out = this.openId ? this.bookRigs.get(this.openId) : undefined;
-    if (!this.isPortrait() || !out) {
-      this.openBook(id);
-      return;
-    }
-    // téléphone : le livre actuel part du côté opposé, le suivant arrive du côté où on va
-    this.finishExit();
-    this.showcase.exiting = { rig: out, dir, start: performance.now() };
-    this.showcase.enterDir = dir;
-    this.openBook(id);
-  }
-
-  /** Remet le livre sorti de l'écran à sa place dans la caisse, sans qu'on le voie voler. */
-  private finishExit(): void {
-    const ex = this.showcase.exiting;
-    if (!ex) return;
-    this.showcase.exiting = null;
-    ex.rig.mesh.layers.set(0);
-    ex.rig.mesh.castShadow = true;
-    const book = this.books.find((b) => b.id === ex.rig.id);
-    if (book) setBookResolution(ex.rig, book, this.stage.aniso, 1);
-    this.layoutBooks();
-    ex.rig.mesh.position.copy(ex.rig.target);
-    ex.rig.mesh.quaternion.copy(ex.rig.quat);
+    this.opened.step(dir);
   }
 
   /** Un clic sur une caisse zoome dessus (désactivé sur téléphone : on zoome au pincement). */
@@ -739,7 +663,7 @@ export class CrateEngine {
       aniso: this.stage.aniso,
       mode: this.mode,
       rigOf: (b) => this.bookRig(b),
-      isHeld: (b) => this.input.heldBook === b || b.id === this.openId,
+      isHeld: (b) => this.input.heldBook === b || b.id === this.opened.id,
     });
     this.counts = counts;
     this.stats = stats;

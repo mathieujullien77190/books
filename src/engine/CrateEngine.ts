@@ -43,7 +43,7 @@ import { buildCrate, forgetCrateLabel, setCrateLabel, uprightLabel, type CrateRi
 import { buildRotateGizmo, type RotateGizmo } from './rotateGizmo';
 import { buildGrid, buildWorldAxes, type WorldAxes } from './worldAxes';
 import { disposeGroup } from './materials';
-import { buildGhostBook } from './ghosts';
+import { buildGhostBook, buildNote } from './ghosts';
 import { loadMesange, type Mesange } from './mesange';
 import { buildMoveGizmo, type MoveGizmo } from './moveGizmo';
 import {
@@ -512,6 +512,12 @@ export class CrateEngine {
       height += t;
       this.ghostGroup.add(mesh);
     });
+    // un papier plié posé sur le dessus de la pile : « Livres à acheter »
+    if (missing.length) {
+      const note = buildNote(missing.length);
+      note.position.set(bb.minX - 1.9, height + 0.01, bb.cz);
+      this.ghostGroup.add(note);
+    }
   }
 
   /** La mésange est perchée sur le coin avant droit de la caisse `MESANGE_PERCH` et la suit si on la déplace. */

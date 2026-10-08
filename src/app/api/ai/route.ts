@@ -10,6 +10,7 @@ import {
   overview,
   searchLibrary,
   seriesGaps,
+  swapBooks,
 } from '@/lib/library';
 import { hasMongoConfig } from '@/lib/mongodb';
 
@@ -37,7 +38,7 @@ Règles :
 Les caisses sont numérotées par une lettre et un rang : P = petite, M = moyenne, G = grande, T = transparente (P1, M3, G2, T5…). « à côté » désigne un livre posé hors des caisses. Dans une caisse, les livres sont listés du premier (le plus à gauche, ou le plus bas d'une pile) au dernier.`;
 
 const WRITE_RULES = `
-Tu peux aussi modifier la bibliothèque (move_book, add_book, delete_book) quand l'utilisateur le demande clairement :
+Tu peux aussi modifier la bibliothèque (move_book, swap_books, add_book, delete_book) quand l'utilisateur le demande clairement :
 - Pour déplacer ou supprimer un livre, retrouve d'abord son id avec search_books ; s'il y a plusieurs livres possibles, demande lequel.
 - delete_book : demande toujours une confirmation explicite (« Je supprime X, tu confirmes ? ») et n'appelle l'outil avec confirmed: true qu'APRÈS un « oui » de l'utilisateur dans son message le plus récent.
 - Après une modification, dis ce que tu as fait en une phrase. Un livre qui ne rentre pas dans la caisse visée sera posé « à côté » par l'appli.`;
@@ -122,6 +123,18 @@ const WRITE_TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: 'swap_books',
+    description: "Échange la place de deux livres (chacun prend la caisse et le rang de l'autre).",
+    input_schema: {
+      type: 'object',
+      properties: {
+        book_a: { type: 'string', description: 'id du premier livre (donné par search_books)' },
+        book_b: { type: 'string', description: 'id du second livre' },
+      },
+      required: ['book_a', 'book_b'],
+    },
+  },
+  {
     name: 'add_book',
     description:
       'Ajoute un nouveau livre dans une caisse. Les dimensions sont facultatives (poche par défaut) et en centimètres.',
@@ -199,6 +212,19 @@ const runTool = async (
       return {
         result: r,
         action: r.ok ? `Déplacé « ${r.title} » : ${r.from} → ${r.to}` : undefined,
+      };
+    }
+    case 'swap_books': {
+      const r = (await swapBooks({ book_a: str(input.book_a), book_b: str(input.book_b) })) as {
+        ok?: boolean;
+        a?: { title: string; from: string; to: string };
+        b?: { title: string };
+      };
+      return {
+        result: r,
+        action: r.ok
+          ? `Échangé « ${r.a!.title} » (${r.a!.from}) et « ${r.b!.title} » (${r.a!.to})`
+          : undefined,
       };
     }
     case 'add_book': {

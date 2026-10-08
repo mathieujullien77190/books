@@ -1,4 +1,4 @@
-import type { Db } from 'mongodb';
+import type { Db, UpdateFilter } from 'mongodb';
 
 import { searchBooks } from '@/components/SearchBar/helpers';
 import { crateLabels } from '@/helpers';
@@ -240,6 +240,31 @@ export const moveBook = async (args: {
     );
   await bumpRev(db);
   return { ok: true, title: book.title, from, to: aside ? ASIDE : lib.labels.get(target!.id) };
+};
+
+/** Échange la place de deux livres : chacun prend la caisse et le rang de l'autre. */
+export const swapBooks = async (args: { book_a: string; book_b: string }): Promise<unknown> => {
+  const db = await getDb();
+  const lib = await load(db);
+  const a = lib.books.find((b) => b.id === args.book_a);
+  const b = lib.books.find((x) => x.id === args.book_b);
+  if (!a) return { error: `Livre introuvable : ${args.book_a}` };
+  if (!b) return { error: `Livre introuvable : ${args.book_b}` };
+  if (a.id === b.id) return { error: 'Il faut deux livres différents' };
+  const put = (from: StoredBook): UpdateFilter<Book> =>
+    from.crate
+      ? { $set: { crate: from.crate, order: from.order ?? 0 } }
+      : { $set: { order: from.order ?? 0 }, $unset: { crate: '' } };
+  const at = { a: brief(a, lib).crate, b: brief(b, lib).crate };
+  await bumpRev(db);
+  await db.collection<Book>('books').updateOne({ id: a.id }, put(b));
+  await db.collection<Book>('books').updateOne({ id: b.id }, put(a));
+  await bumpRev(db);
+  return {
+    ok: true,
+    a: { title: a.title, from: at.a, to: at.b },
+    b: { title: b.title, from: at.b, to: at.a },
+  };
 };
 
 export const addBook = async (args: {

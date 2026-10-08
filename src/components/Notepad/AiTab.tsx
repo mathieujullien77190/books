@@ -138,7 +138,7 @@ export const AiTab = ({ onChanged }: { onChanged?: () => void }) => {
         ))}
       </select>
       {turns.length > 0 && (
-        <div className="mb-2 max-h-52 [scrollbar-width:thin] space-y-1.5 overflow-y-auto text-sm">
+        <div className="mb-2 max-h-52 [scrollbar-width:thin] space-y-3 overflow-y-auto text-sm">
           {turns.map((t, i) => (
             <p
               key={i}
@@ -146,6 +146,9 @@ export const AiTab = ({ onChanged }: { onChanged?: () => void }) => {
                 t.role === 'user' ? 'bg-ink/5 text-ink' : 'bg-accent/10 text-ink'
               }`}
             >
+              <span className="mb-0.5 block text-[11px] font-semibold tracking-wide text-muted uppercase">
+                {t.role === 'user' ? 'Moi' : 'Claude'}
+              </span>
               {t.actions?.map((a) => (
                 <span key={a} className="mb-1 block text-xs text-muted">
                   ✅ {a}

@@ -202,13 +202,11 @@ export const CratesApp = ({ className = '' }: CratesAppProps) => {
           />
         </div>
       )}
-      {!phone && (
-        <PanPad
-          className="fixed right-4 bottom-4 z-10"
-          onPan={(dx, dy) => engine?.pan(dx, dy)}
-          onRecenter={() => engine?.recenter()}
-        />
-      )}
+      <PanPad
+        className="fixed right-4 bottom-4 z-10 max-md:origin-bottom-right max-md:scale-75"
+        onPan={(dx, dy) => engine?.pan(dx, dy)}
+        onRecenter={() => engine?.recenter()}
+      />
       {toast && (
         <div
           role="status"

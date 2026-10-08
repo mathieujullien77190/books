@@ -9,14 +9,20 @@ import {
   moveBook,
   overview,
   searchLibrary,
+  seriesGaps,
 } from '@/lib/library';
 import { hasMongoConfig } from '@/lib/mongodb';
 
-const MODEL = 'claude-opus-5-5';
+/** Modèles proposés dans l'onglet IA ; Haiku par défaut (le moins cher, suffisant pour interroger la base). */
+const MODELS: Record<string, string> = {
+  haiku: 'claude-haiku-5-5',
+  sonnet: 'claude-sonnet-5-5',
+  opus: 'claude-opus-5-5',
+};
 const MAX_TURNS = 20;
 const MAX_CHARS = 4000;
 /** Tours d'outils maximum pour une même question (recherche, puis modification, puis vérification). */
-const MAX_STEPS = 8;
+const MAX_STEPS = 5;
 
 type Turn = { role: 'user' | 'assistant'; content: string };
 type Input = Record<string, unknown>;
@@ -59,8 +65,23 @@ const READ_TOOLS: Anthropic.Tool[] = [
         },
         limit: {
           type: 'integer',
-          description: 'Nombre maximum de résultats (50 au plus, 25 par défaut)',
+          description: 'Nombre maximum de résultats (50 au plus, 15 par défaut)',
         },
+        details: {
+          type: 'boolean',
+          description: 'true pour obtenir aussi éditeur, année et type (plus long)',
+        },
+      },
+    },
+  },
+  {
+    name: 'series_gaps',
+    description:
+      "Liste en un seul appel les séries numérotées dont il manque des tomes (entre le premier et le dernier possédés). À utiliser pour « qu'est-ce qui me manque ? » au lieu de multiplier les recherches. `series` filtre sur un nom de série.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        series: { type: 'string', description: 'Fragment du nom de la série (facultatif)' },
       },
     },
   },
@@ -90,6 +111,11 @@ const WRITE_TOOLS: Anthropic.Tool[] = [
         after_book_id: {
           type: 'string',
           description: 'id du livre après lequel le placer (facultatif)',
+        },
+        position: {
+          type: 'integer',
+          description:
+            'rang dans la caisse, 1 = premier (le plus à gauche / le plus bas de la pile)',
         },
       },
       required: ['book_id', 'crate'],
@@ -156,8 +182,11 @@ const runTool = async (
           crate: str(input.crate) || undefined,
           kind: str(input.kind) || undefined,
           limit: num(input.limit),
+          details: input.details === true,
         }),
       };
+    case 'series_gaps':
+      return { result: await seriesGaps({ series: str(input.series) || undefined }) };
     case 'get_crate_contents':
       return { result: await crateContents(str(input.crate)) };
     case 'move_book': {
@@ -165,6 +194,7 @@ const runTool = async (
         book_id: str(input.book_id),
         crate: str(input.crate),
         after_book_id: str(input.after_book_id) || undefined,
+        position: num(input.position),
       })) as { ok?: boolean; title?: string; from?: string; to?: string };
       return {
         result: r,
@@ -217,7 +247,7 @@ const parseTurns = (raw: unknown): Turn[] | null => {
  * outils de modification ne sont proposés que si `token` prouve que le code d'Édition a été saisi.
  */
 export const POST = async (request: Request): Promise<NextResponse> => {
-  let body: { key?: unknown; messages?: unknown; token?: unknown };
+  let body: { key?: unknown; messages?: unknown; token?: unknown; model?: unknown };
   try {
     body = (await request.json()) as typeof body;
   } catch {
@@ -229,6 +259,7 @@ export const POST = async (request: Request): Promise<NextResponse> => {
   if (!turns) return NextResponse.json({ ok: false, reason: 'invalid' }, { status: 400 });
   if (!hasMongoConfig()) return NextResponse.json({ ok: false, reason: 'no-db' }, { status: 503 });
 
+  const modelKey = typeof body.model === 'string' && body.model in MODELS ? body.model : 'haiku';
   const writes = isEditToken(body.token);
   const allowed = new Set([...READ_TOOLS, ...(writes ? WRITE_TOOLS : [])].map((t) => t.name));
   const actions: string[] = [];
@@ -246,9 +277,10 @@ export const POST = async (request: Request): Promise<NextResponse> => {
     ];
     for (let step = 0; step < MAX_STEPS; step++) {
       const response = await client.messages.create({
-        model: MODEL,
-        max_tokens: 4000,
-        output_config: { effort: 'low' },
+        model: MODELS[modelKey]!,
+        max_tokens: 2000,
+        // l'effort n'est pas réglé sur Haiku (déjà le plus léger)
+        ...(modelKey === 'haiku' ? {} : { output_config: { effort: 'low' as const } }),
         system,
         tools: [...READ_TOOLS, ...(writes ? WRITE_TOOLS : [])],
         messages,

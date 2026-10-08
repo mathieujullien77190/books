@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import Button from '@/components/ui/Button';
 
-import { AI_ERRORS, EDIT_TOKEN_KEY, KEY_STORAGE } from './constants';
+import { AI_ERRORS, EDIT_TOKEN_KEY, KEY_STORAGE, MODEL_OPTIONS, MODEL_STORAGE } from './constants';
 import type { AiTurn } from './types';
 
 /** La clé reste dans ce navigateur (jamais en base) : chacun utilise la sienne. */
@@ -25,6 +25,15 @@ const readEditToken = (): string | null => {
   }
 };
 
+const readModel = (): string => {
+  try {
+    const m = localStorage.getItem(MODEL_STORAGE);
+    return MODEL_OPTIONS.some((o) => o.id === m) ? m! : 'haiku';
+  } catch {
+    return 'haiku';
+  }
+};
+
 const writeKey = (key: string): void => {
   try {
     if (key) localStorage.setItem(KEY_STORAGE, key);
@@ -36,6 +45,7 @@ const writeKey = (key: string): void => {
 
 export const AiTab = ({ onChanged }: { onChanged?: () => void }) => {
   const [key, setKey] = useState(readKey);
+  const [model, setModel] = useState(readModel);
   const [question, setQuestion] = useState('');
   const [turns, setTurns] = useState<AiTurn[]>([]);
   const [busy, setBusy] = useState(false);
@@ -63,6 +73,7 @@ export const AiTab = ({ onChanged }: { onChanged?: () => void }) => {
           key: key.trim(),
           messages: next.map(({ role, content }) => ({ role, content })),
           token: readEditToken(),
+          model,
         }),
       });
       const data = (await res.json()) as {
@@ -107,6 +118,25 @@ export const AiTab = ({ onChanged }: { onChanged?: () => void }) => {
           writeKey(e.target.value.trim());
         }}
       />
+      <select
+        aria-label="Modèle"
+        className="mb-2 w-full rounded-lg border border-ink/10 bg-white px-2.5 py-1.5 text-sm text-ink"
+        value={model}
+        onChange={(e) => {
+          setModel(e.target.value);
+          try {
+            localStorage.setItem(MODEL_STORAGE, e.target.value);
+          } catch {
+            // stockage indisponible : le choix vaut pour la session
+          }
+        }}
+      >
+        {MODEL_OPTIONS.map((o) => (
+          <option key={o.id} value={o.id}>
+            {o.label}
+          </option>
+        ))}
+      </select>
       {turns.length > 0 && (
         <div className="mb-2 max-h-52 [scrollbar-width:thin] space-y-1.5 overflow-y-auto text-sm">
           {turns.map((t, i) => (

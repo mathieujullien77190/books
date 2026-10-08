@@ -6,7 +6,12 @@ import { AiTab } from './AiTab';
 import type { NotepadProps } from './types';
 
 /** Panneau « Claude » : conversation avec l'assistant de la bibliothèque. */
-export const Notepad = ({ className = '', defaultOpen = false, onChanged }: NotepadProps) => {
+export const Notepad = ({
+  className = '',
+  defaultOpen = false,
+  onChanged,
+  onOpenBook,
+}: NotepadProps) => {
   const [open, setOpen] = useState(defaultOpen);
 
   return (
@@ -32,7 +37,7 @@ export const Notepad = ({ className = '', defaultOpen = false, onChanged }: Note
           {open ? '▴' : '▾'}
         </button>
       </div>
-      {open && <AiTab onChanged={onChanged} />}
+      {open && <AiTab onChanged={onChanged} onOpenBook={onOpenBook} />}
     </section>
   );
 };

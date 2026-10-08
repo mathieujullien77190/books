@@ -100,7 +100,14 @@ export const CratesApp = ({ className = '' }: CratesAppProps) => {
                   onUndo={() => engine?.undo()}
                 />
               ) : (
-                <Notepad defaultOpen onChanged={() => engine?.reload()} />
+                <Notepad
+                  defaultOpen
+                  onChanged={() => engine?.reload()}
+                  onOpenBook={(id) => {
+                    setSheet(null);
+                    engine?.openBook(id);
+                  }}
+                />
               )}
             </div>
           )}
@@ -196,7 +203,11 @@ export const CratesApp = ({ className = '' }: CratesAppProps) => {
             }
             onUndo={() => engine?.undo()}
           />
-          <Notepad className="shrink-0" onChanged={() => engine?.reload()} />
+          <Notepad
+            className="shrink-0"
+            onChanged={() => engine?.reload()}
+            onOpenBook={(id) => engine?.openBook(id)}
+          />
           <BookDetail
             book={openBook}
             crateLabel={

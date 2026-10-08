@@ -67,7 +67,42 @@ const speechCtor = (): (new () => Recognition) | null => {
 const timeOf = (at?: number): string =>
   at ? new Date(at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
 
-export const AiTab = ({ onChanged }: { onChanged?: () => void }) => {
+const BOOK_LINK = /\[([^\]]+)\]\(livre:([A-Za-z0-9_-]+)\)/g;
+
+/** Texte d'une réponse : les liens [Titre](livre:id) deviennent des boutons qui affichent le livre en 3D. */
+const renderAnswer = (text: string, onOpenBook?: (id: string) => void) => {
+  const parts: (string | { title: string; id: string })[] = [];
+  let last = 0;
+  for (const m of text.matchAll(BOOK_LINK)) {
+    if (m.index > last) parts.push(text.slice(last, m.index));
+    parts.push({ title: m[1]!, id: m[2]! });
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return parts.map((p, i) =>
+    typeof p === 'string' ? (
+      p
+    ) : (
+      <button
+        key={i}
+        type="button"
+        className="cursor-pointer border-0 bg-transparent p-0 text-left font-semibold text-[#027eb5] underline decoration-dotted underline-offset-2 hover:text-[#015f8a]"
+        title="Afficher en 3D"
+        onClick={() => onOpenBook?.(p.id)}
+      >
+        {p.title}
+      </button>
+    ),
+  );
+};
+
+export const AiTab = ({
+  onChanged,
+  onOpenBook,
+}: {
+  onChanged?: () => void;
+  onOpenBook?: (id: string) => void;
+}) => {
   const [key, setKey] = useState(readKey);
   const [model, setModel] = useState(readModel);
   /** Champ de la clé replié derrière le bouton 🔑 ; ouvert d'office tant qu'il n'y a pas de clé. */
@@ -253,7 +288,7 @@ export const AiTab = ({ onChanged }: { onChanged?: () => void }) => {
                     ✅ {a}
                   </span>
                 ))}
-                {t.content}
+                {mine ? t.content : renderAnswer(t.content, onOpenBook)}
                 <span className="mt-0.5 block text-right text-[10px] text-[#667781]">
                   {timeOf(t.at)}
                 </span>

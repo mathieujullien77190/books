@@ -11,6 +11,8 @@ export type AiTurn = {
 export type NotepadProps = {
   /** Claude a modifié la bibliothèque : la scène doit se recharger depuis la base. */
   onChanged?: () => void;
+  /** Clic sur le lien d'un livre dans une réponse de Claude : l'afficher en 3D. */
+  onOpenBook?: (id: string) => void;
   /** Ouvert dès l'affichage (feuille du téléphone) ; replié par défaut. */
   defaultOpen?: boolean;
   className?: string;

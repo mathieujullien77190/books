@@ -12,7 +12,7 @@ export const BackgroundLayout = ({ engine, snap, labels, openBook, lock }: Layou
   }, [engine]);
   return (
     <>
-      {/* collée à la mésange par le moteur ; la flèche pointe vers elle */}
+      {/* collée à la mésange par le moteur */}
       <div
         ref={birdLabel}
         className="pointer-events-none fixed top-0 left-0 z-10 opacity-0 transition-opacity"

@@ -1,5 +1,3 @@
-import { PAD, SIZES } from '@/constants';
-import { uid } from '@/helpers';
 import type {
   Book,
   Crate,
@@ -17,8 +15,9 @@ import { BookRigs } from './bookRigs';
 import { setBookResolution, updateBookTextures } from './books';
 import { OpenBook } from './openBook';
 import { OPEN_BOOK_SCALE } from './constants';
+import { CrateOps } from './crateOps';
 import { CrateRigs } from './crateRigs';
-import { crateBounds, nextStepPosition, type Bounds } from './cratePlacement';
+import { crateBounds, type Bounds } from './cratePlacement';
 import { Decor } from './decor';
 import { DisplayMode } from './displayMode';
 import { History } from './history';
@@ -28,7 +27,6 @@ import { disposeGroup } from './materials';
 import { loadMesange } from './mesange';
 import { RenderLoop } from './loop';
 import { MissingPile } from './missingPile';
-import { Q_TRANCHE, rotatedQuat } from './orientation';
 import { Persistence } from './persistence';
 import { Stage } from './stage';
 import { focusCrateView, recenterView } from './view';
@@ -55,6 +53,7 @@ export class CrateEngine {
   private books: Book[] = [];
   private selectedId: Id | null = null;
   private readonly opened: OpenBook;
+  private readonly crateOps: CrateOps;
   private counts = new Map<Id, number>();
   private stats = { stored: 0, loose: 0, full: 0 };
 
@@ -123,6 +122,22 @@ export class CrateEngine {
       bounds: () => this.bounds(),
     });
     stage.scene.add(this.decor.gizmo.group);
+    this.crateOps = new CrateOps({
+      crates: () => this.crates,
+      setCrates: (crates) => {
+        this.crates = crates;
+      },
+      books: () => this.books,
+      selectedId: () => this.selectedId,
+      setSelected: (id) => {
+        this.selectedId = id;
+      },
+      bounds: () => this.bounds(),
+      removeRig: (id) => this.crateRigs.remove(id),
+      pushHistory: () => this.pushHistory(),
+      refresh: () => this.refresh(),
+      recenter: () => this.recenter(),
+    });
     this.opened = new OpenBook({
       books: () => this.books,
       bookRigs: this.bookRigs.rigs,
@@ -358,76 +373,34 @@ export class CrateEngine {
 
   // ---------- API publique : caisses ----------
   addCrate(size: CrateSize): void {
-    this.pushHistory();
-    const s = SIZES[size];
-    const bb = this.bounds();
-    // nouvelle caisse derrière l'axe X (face avant sur l'axe), à droite du groupe ; la première au coin
-    const c: Crate = {
-      id: uid(),
-      size,
-      q: Q_TRANCHE.slice() as Crate['q'],
-      x: this.crates.length ? bb.maxX + s.w / 2 + PAD : s.w / 2 + PAD,
-      z: -(s.d / 2 + PAD),
-      y: 0,
-      dims: size === 'X' ? { w: s.w, h: s.h, d: s.d } : undefined,
-    };
-    this.crates.push(c);
-    this.selectedId = c.id;
-    this.refresh();
-    this.recenter(); // la nouvelle caisse est posée à droite du groupe, parfois hors champ
+    this.crateOps.add(size);
   }
 
   removeCrate(id: Id): void {
-    this.pushHistory();
-    this.crates = this.crates.filter((c) => c.id !== id);
-    this.crateRigs.remove(id);
-    if (this.selectedId === id) this.selectedId = null;
-    for (const b of this.books) if (b.crate === id) b.crate = null;
-    this.refresh();
+    this.crateOps.remove(id);
   }
 
   setCrateSize(id: Id, size: CrateSize): void {
-    const c = this.crate(id);
-    if (!c || c.size === size) return;
-    this.pushHistory();
-    c.size = size;
-    if (size === 'X' && !c.dims) c.dims = { ...SIZES.X };
-    this.refresh();
+    this.crateOps.setSize(id, size);
   }
 
   /** Livres debout ou à plat dans cette caisse. */
   setCrateFlat(id: Id, flat: boolean): void {
-    const c = this.crate(id);
-    if (!c || !!c.flat === flat) return;
-    this.pushHistory();
-    c.flat = flat;
-    this.refresh();
+    this.crateOps.setFlat(id, flat);
   }
 
   /** Les livres plus profonds que la caisse y sont admis et dépassent devant. */
   setCrateOverhang(id: Id, overhang: boolean): void {
-    const c = this.crate(id);
-    if (!c || !!c.overhang === overhang) return;
-    this.pushHistory();
-    c.overhang = overhang || undefined;
-    this.refresh();
+    this.crateOps.setOverhang(id, overhang);
   }
 
   /** Cotes d'une caisse transparente (unités scène). */
   setCrateDims(id: Id, dims: Dims): void {
-    const c = this.crate(id);
-    if (!c || c.size !== 'X') return;
-    this.pushHistory();
-    c.dims = { ...dims };
-    this.refresh();
+    this.crateOps.setDims(id, dims);
   }
 
   rotateCrate(id: Id, axis: RotAxis, sign: 1 | -1): void {
-    const c = this.crate(id);
-    if (!c) return;
-    this.pushHistory();
-    c.q = rotatedQuat(c, axis, sign);
-    this.refresh();
+    this.crateOps.rotate(id, axis, sign);
   }
 
   selectCrate(id: Id | null): void {
@@ -525,26 +498,9 @@ export class CrateEngine {
     this.crateRigs.hint(id);
   }
 
-  /**
-   * Déplace la caisse d'un cran dans un sens : jusqu'à la prochaine position « intéressante »
-   * (contact ou alignement avec une autre caisse, bord sur un axe) ou, à défaut, d'un pas de grille.
-   * Sur l'axe vertical : vers le haut seulement, la caisse passe au sommet de sa pile.
-   */
+  /** Déplace la caisse d'un cran dans un sens (voir CrateOps.step). */
   stepCrate(id: Id, axis: RotAxis, sign: 1 | -1): void {
-    const c = this.crate(id);
-    if (!c || (axis === 'y' && sign < 0)) return;
-    this.pushHistory();
-    if (axis === 'y') {
-      this.crates.splice(this.crates.indexOf(c), 1);
-      this.crates.push(c);
-      this.refresh();
-      return;
-    }
-    const next = nextStepPosition(this.crates, c, axis, sign);
-    if (axis === 'x') c.x = next;
-    else c.z = next;
-    // ordre d'empilement inchangé : la caisse glisse à son niveau, elle ne passe pas au-dessus des autres
-    this.refresh();
+    this.crateOps.step(id, axis, sign);
   }
 
   /** Édition (caisses réglables) ou bibliothèque (lecture seule, sans repère ni poignées). */

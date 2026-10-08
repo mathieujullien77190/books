@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import CrateList from '@/components/CrateList';
 import CrateSelection from '@/components/CrateSelection';
 import Button from '@/components/ui/Button';
+import IconButton from '@/components/ui/IconButton';
 import Panel from '@/components/ui/Panel';
 import TextInput from '@/components/ui/TextInput';
 import { APP_NAME, SIZE_KEYS, SIZES } from '@/constants';
@@ -36,6 +37,8 @@ export const SidePanel = ({
   const [open, setOpen] = useState(defaultOpen);
   const [wrongCode, setWrongCode] = useState(false);
   const [code, setCode] = useState('');
+  /** Champ du code d'Édition replié derrière la petite clé 🔑 (comme la clé API du panneau Claude). */
+  const [showCode, setShowCode] = useState(false);
   const edit = snapshot.mode === 'edit';
   const selected = snapshot.crates.find((c) => c.id === snapshot.selectedId) ?? null;
   const labels = useMemo(() => crateLabels(snapshot.crates), [snapshot.crates]);
@@ -68,9 +71,7 @@ export const SidePanel = ({
                 variant={snapshot.mode === m.mode ? 'active' : 'default'}
                 pressed={snapshot.mode === m.mode}
                 title={
-                  editLocked && m.mode === 'edit'
-                    ? 'Verrouillé : saisis le code ci-dessous'
-                    : m.title
+                  editLocked && m.mode === 'edit' ? 'Verrouillé : saisis le code (🔑)' : m.title
                 }
                 disabled={editLocked && m.mode === 'edit'}
                 onClick={() => onMode(m.mode)}
@@ -78,8 +79,18 @@ export const SidePanel = ({
                 {m.label}
               </Button>
             ))}
+            {editLocked && (
+              <IconButton
+                className={`ml-auto h-9 w-9 shrink-0 rounded-lg bg-white text-base ${showCode ? 'border-ink' : ''}`}
+                label="Code d'Édition"
+                aria-expanded={showCode}
+                onClick={() => setShowCode((v) => !v)}
+              >
+                🔑
+              </IconButton>
+            )}
           </div>
-          {editLocked && (
+          {editLocked && showCode && (
             <form
               className="mt-1.5"
               onSubmit={async (e) => {
@@ -87,16 +98,16 @@ export const SidePanel = ({
                 const ok = await onUnlockEdit?.(code);
                 setWrongCode(!ok);
                 setCode('');
+                if (ok) setShowCode(false);
               }}
             >
               <div className="flex items-center gap-1.5">
-                <label htmlFor="editCode" className="text-xs text-muted">
-                  Code
-                </label>
                 <TextInput
                   id="editCode"
                   name="editCode"
                   type="password"
+                  placeholder="Code"
+                  aria-label="Code d'Édition"
                   className="min-w-0 flex-1 py-1.5"
                   autoComplete="off"
                   value={code}

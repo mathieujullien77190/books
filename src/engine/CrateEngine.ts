@@ -137,6 +137,7 @@ export class CrateEngine {
 
   // vecteurs de travail
   private readonly _tv = new THREE.Vector3();
+  private birdLabel: HTMLElement | null = null;
 
   /** `transparent` : fond et sol invisibles (seules les ombres restent), pour la poser sur un autre décor. */
   constructor(
@@ -722,6 +723,11 @@ export class CrateEngine {
   }
 
   /** Élément HTML de l'infobulle (titre du livre survolé), positionné par le moteur. */
+  /** Étiquette HTML que le moteur colle à côté de la mésange (déplacée à chaque image, sans passer par React). */
+  attachBirdLabel(el: HTMLElement | null): void {
+    this.birdLabel = el;
+  }
+
   attachTooltip(el: HTMLElement | null): void {
     this.input.attachTooltip(el);
   }
@@ -748,6 +754,24 @@ export class CrateEngine {
   // ---------- état ----------
   private crate(id: Id): Crate | undefined {
     return this.crates.find((c) => c.id === id);
+  }
+
+  /** Colle l'étiquette de la mésange à sa position écran (cachée si la mésange l'est ou si un livre est sorti). */
+  private placeBirdLabel(): void {
+    const el = this.birdLabel;
+    const bird = this.decor.group;
+    if (!el) return;
+    if (!bird?.visible || this.openId) {
+      el.style.opacity = '0';
+      return;
+    }
+    const p = bird.getWorldPosition(this._tv);
+    p.y += 0.2;
+    p.project(this.camera);
+    const w = this.canvas.clientWidth;
+    const h = this.canvas.clientHeight;
+    el.style.transform = `translate(${((p.x + 1) / 2) * w}px, ${((1 - p.y) / 2) * h}px)`;
+    el.style.opacity = p.z < 1 ? '1' : '0';
   }
 
   // ---------- scène ----------
@@ -909,6 +933,7 @@ export class CrateEngine {
     this.input.updateHover();
     this.controls.update();
     if (this.camera.position.y < 0.25) this.camera.position.y = 0.25; // jamais sous le sol
+    this.placeBirdLabel();
     this.renderer.clear();
     this.camera.layers.set(0);
     this.renderer.render(this.scene, this.camera);

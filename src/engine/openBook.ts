@@ -61,7 +61,7 @@ export class OpenBook {
     if (rig && rig !== this.showcase.exiting?.rig) {
       rig.mesh.layers.set(0);
       rig.mesh.castShadow = true;
-      const book = this.id ? this.book(this.id) : undefined;
+      const book = this.book(this.id!); // un rig trouvé implique un livre ouvert
       if (book) setBookResolution(rig, book, h.aniso, 1);
     }
     this.id = null;
@@ -140,8 +140,12 @@ export class OpenBook {
     for (const id of next) {
       const rig = id && h.bookRigs.get(id);
       if (!rig || h.isPortrait()) continue;
-      const nb = books.find((k) => k.id === id);
-      if (nb) ensureCover(rig, nb, h.aniso, true);
+      ensureCover(
+        rig,
+        books.find((k) => k.id === id)!,
+        h.aniso,
+        true,
+      );
       rig.mesh.layers.set(1);
       rig.mesh.castShadow = false;
     }

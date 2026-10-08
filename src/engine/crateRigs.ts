@@ -97,7 +97,7 @@ export class CrateRigs {
     for (const c of crates) {
       const fp = footprint(c);
       const rig = this.ensure(c);
-      setCrateLabel(rig, labels.get(c.id) ?? '');
+      setCrateLabel(rig, labels.get(c.id)!);
       rig.group.position.set(c.x, c.y + fp.fy / 2, c.z);
       rig.group.quaternion.copy(quatOf(c));
       uprightLabel(rig, rig.group.quaternion);

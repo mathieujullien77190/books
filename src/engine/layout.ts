@@ -100,7 +100,7 @@ export const layoutBooks = (inp: LayoutInput): LayoutResult => {
         toPile(b, br);
         continue;
       }
-      counts.set(cid, (counts.get(cid) ?? 0) + 1);
+      counts.set(cid, counts.get(cid)! + 1);
       br.r = ru[0];
       setSpineFlat(br, fr.mode === 'flat');
       if (fr.mode === 'flat') ensureCover(br, b, aniso); // couché, la couverture est dessus

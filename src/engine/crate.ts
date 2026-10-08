@@ -125,7 +125,7 @@ export const buildCrate = (id: Id, size: CrateSize, dims: Dims): CrateRig => {
     for (const sx of [-1, 1]) metal(mt, h + 4 * out, 0.1, sx * (w / 2 + out), 0, d / 2 - 0.05);
 
     // rivets (instanciés)
-    const rivets: [number, number, number, 'x' | 'y' | 'z'][] = [];
+    const rivets: [number, number, number, 'x' | 'y'][] = [];
     const r = out + mt / 2 + 0.008;
     for (const z of strapZs) {
       for (let x = -w / 2 + 0.45; x <= w / 2 - 0.4; x += 0.55)
@@ -141,7 +141,7 @@ export const buildCrate = (id: Id, size: CrateSize, dims: Dims): CrateRig => {
     const dummy = new THREE.Object3D();
     rivets.forEach(([x, y, z, axis], i) => {
       dummy.position.set(x, y, z);
-      dummy.rotation.set(axis === 'z' ? Math.PI / 2 : 0, 0, axis === 'x' ? Math.PI / 2 : 0);
+      dummy.rotation.set(0, 0, axis === 'x' ? Math.PI / 2 : 0);
       dummy.updateMatrix();
       rivetMesh.setMatrixAt(i, dummy.matrix);
     });

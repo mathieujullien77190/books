@@ -1,4 +1,10 @@
-import { MongoClient, type Db } from 'mongodb';
+import {
+  MongoClient,
+  type AnyBulkWriteOperation,
+  type Collection,
+  type Db,
+  type Document,
+} from 'mongodb';
 
 /**
  * Connexion MongoDB Atlas partagée entre les requêtes (évite de ré-ouvrir une connexion à chaque
@@ -40,6 +46,22 @@ export const claimRev = async (db: Db, rev: number): Promise<boolean> => {
     }
   }
   return !!(await meta(db).findOneAndUpdate({ _id: 'state', rev }, { $inc: { rev: 1 } }));
+};
+
+/**
+ * Remplace le contenu d'une collection par `items` (identifiés par leur `id`, `order` = rang) sans jamais la
+ * vider : un seul lot ordonné qui écrit (upsert) chaque élément puis supprime ceux qui ne sont plus là. Une
+ * panne en cours de route laisse donc au pire des anciens éléments en trop, jamais une collection vide.
+ */
+export const replaceAll = async <T extends { id: string }>(
+  col: Collection<Document>,
+  items: T[],
+): Promise<void> => {
+  const ops: AnyBulkWriteOperation<Document>[] = items.map((item, order) => ({
+    replaceOne: { filter: { id: item.id }, replacement: { ...item, order }, upsert: true },
+  }));
+  ops.push({ deleteMany: { filter: { id: { $nin: items.map((i) => i.id) } } } });
+  await col.bulkWrite(ops, { ordered: true });
 };
 
 /** true si MONGODB_URI est configuré : permet aux routes de se rabattre proprement sinon. */

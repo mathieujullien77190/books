@@ -158,7 +158,7 @@ export const BookDetail = ({
             data-edit
             onClick={() => onChange({ cover: '' })}
           >
-            Retirer
+            Supprimer
           </Button>
         )}
       </div>

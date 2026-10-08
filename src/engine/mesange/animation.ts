@@ -2,13 +2,13 @@ import * as THREE from 'three';
 
 /**
  * Comportement de la mésange, repris de l'atelier lowpoly (customRigTick) : elle reste sur son perchoir
- * (pas de marche) et alterne regard par saccades, coups de queue, picotis, petits bonds sur place,
+ * (pas de marche) et alterne regard par saccades, coups de queue, picotis,
  * inclinaisons du corps et pépiements (bec ouvert).
  * Nœuds pilotés par leur nom (tous facultatifs) : body, head, jaw, tail, wingL, wingR,
  * thighL/R, shinL/R, footL/R.
  */
 
-type Mode = 'idle' | 'peck' | 'hop';
+type Mode = 'idle' | 'peck';
 
 /** Générateur pseudo-aléatoire à graine (mulberry32) : même comportement à chaque chargement. */
 const seeded = (seed: number) => {
@@ -56,7 +56,6 @@ export const createMesangeAnimator = (
   let timer = 0.6 + rnd() * 1.4;
   let calm = false;
   let peckT = 0;
-  let hopT = 0;
   let lookT = 0;
   let lookY = 0;
   let lookX = 0;
@@ -76,8 +75,6 @@ export const createMesangeAnimator = (
       leanT = 0.6 + rnd() * 2;
       lean = calm || rnd() < 0.45 ? 0 : (rnd() < 0.5 ? -1 : 1) * (0.15 + rnd() * 0.2);
     }
-    let hop = 0;
-    let crouch = 0;
     let pitch = 0;
     let headX = 0;
     let open = 0;
@@ -107,36 +104,17 @@ export const createMesangeAnimator = (
     if (mode === 'idle') {
       if (!calm && t % 5 < 0.5)
         open = 0.6 * Math.pow(Math.max(0, Math.sin(2 * Math.PI * 6 * t)), 1.5); // pépie
-      crouch = 0.08 * Math.max(0, Math.sin(t * 9 + ph)) * flick;
       if (timer <= 0) {
         const r = rnd();
         calm = false;
         if (r < 0.25) {
           calm = true;
           timer = 2 + rnd() * 4;
-        } else if (r < 0.65) {
+        } else {
           mode = 'peck';
           peckT = 0;
           timer = 0.55;
-        } else {
-          mode = 'hop';
-          hopT = 0;
-          timer = (2 + Math.floor(rnd() * 2)) * 0.22;
         }
-      }
-    } else if (mode === 'hop') {
-      // Bonds secs sur place : accroupie puis détente.
-      hopT += dt * 28;
-      const sn = Math.sin(hopT);
-      hop = Math.max(0, sn) * 0.05;
-      crouch = Math.max(0, -sn) * 0.6;
-      headX = Math.max(0, sn) * 0.12 - Math.max(0, -sn) * 0.1;
-      headY = 0;
-      snap = 30;
-      tailX = 0.15 + 0.25 * sn;
-      if (timer <= 0) {
-        mode = 'idle';
-        timer = 0.2 + rnd() * 0.9;
       }
     } else {
       // Picore : plonge, coup de bec, relève la tête.
@@ -146,7 +124,6 @@ export const createMesangeAnimator = (
       const e = smooth(e0);
       pitch = 0.4 * e;
       headX = 0.95 * e - 0.25 * (1 - e);
-      crouch = 0.35 * e;
       tailX = 0.1 + 0.3 * e;
       headY = e > 0.3 ? 0 : null;
       snap = 30;
@@ -160,7 +137,7 @@ export const createMesangeAnimator = (
     let rx = 0;
     let rz = 0;
     if (body) {
-      body.position.y = baseY * (1 - 0.35 * crouch) + hop;
+      body.position.y = baseY; // jamais de rebond : les pattes restent posées sur la caisse
       body.rotation.x += (pitch - body.rotation.x) * k(16);
       body.rotation.z += ((mode === 'idle' ? lean : 0) - body.rotation.z) * k(7);
       rx = body.rotation.x;
@@ -171,10 +148,7 @@ export const createMesangeAnimator = (
       if (lg.thigh) {
         lg.thigh.rotation.x = -rx;
         lg.thigh.rotation.z = -0.7 * rz;
-        lg.thigh.scale.y = 1 - 0.35 * crouch;
       }
-      if (lg.shin) lg.shin.rotation.x = 0.27 * crouch;
-      if (lg.foot) lg.foot.rotation.x = -0.15 * crouch;
     }
     if (tail) {
       tail.rotation.x += (tailX - tail.rotation.x) * k(14);

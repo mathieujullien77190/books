@@ -1,6 +1,3 @@
-/** Clé localStorage de la clé API de la personne (propre à chaque navigateur). */
-export const KEY_STORAGE = 'anthropic-api-key';
-
 /** Modèles proposés (du moins cher au plus puissant) ; la clé est envoyée au serveur. */
 export const MODEL_OPTIONS: { id: string; label: string }[] = [
   { id: 'haiku', label: 'Haiku' },
@@ -8,10 +5,8 @@ export const MODEL_OPTIONS: { id: string; label: string }[] = [
   { id: 'opus', label: 'Opus' },
 ];
 
-export const MODEL_STORAGE = 'ai-model';
-
-/** Clé localStorage du jeton d'Édition (voir CratesApp/helpers.ts). */
-export const EDIT_TOKEN_KEY = 'edit-token';
+/** Modèle choisi tant que la personne n'en a pas retenu un autre. */
+export const DEFAULT_MODEL = 'haiku';
 
 export const AI_ERRORS: Record<string, string> = {
   'no-db': 'La base n’est pas configurée : Claude ne peut pas consulter la bibliothèque.',

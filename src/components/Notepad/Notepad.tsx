@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 
+import Panel from '@/components/ui/Panel';
+
 import { AiTab } from './AiTab';
 import type { NotepadProps } from './types';
 
@@ -15,13 +17,11 @@ export const Notepad = ({
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <section
-      className={`pointer-events-auto rounded-2xl border border-ink/10 bg-white/85 text-sm shadow-[0_10px_30px_rgba(31,42,55,0.14)] backdrop-blur-md ${className}`}
-    >
+    <Panel as="section" className={`pointer-events-auto ${className}`}>
       <div className="flex items-center justify-between gap-2 px-3.5 py-2">
         <button
           type="button"
-          className="flex cursor-pointer items-center gap-2 border-0 bg-transparent p-0 text-left text-base leading-none font-semibold tracking-[0.2px]"
+          className="flex cursor-pointer items-center gap-2 border-0 bg-transparent p-0 text-left text-base leading-none font-semibold tracking-[0.2px] max-md:min-h-11"
           aria-expanded={open}
           onClick={() => setOpen((o) => !o)}
         >
@@ -30,14 +30,15 @@ export const Notepad = ({
         </button>
         <button
           type="button"
-          className="cursor-pointer border-0 bg-transparent px-1 text-xs text-muted"
+          className="cursor-pointer border-0 bg-transparent px-1 text-xs text-muted max-md:min-h-11 max-md:min-w-11"
           aria-label={open ? 'Replier Claude' : 'Déplier Claude'}
+          aria-expanded={open}
           onClick={() => setOpen((o) => !o)}
         >
           {open ? '▴' : '▾'}
         </button>
       </div>
       {open && <AiTab onChanged={onChanged} onOpenBook={onOpenBook} />}
-    </section>
+    </Panel>
   );
 };

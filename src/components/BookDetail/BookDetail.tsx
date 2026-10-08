@@ -1,7 +1,14 @@
 import Button from '@/components/ui/Button';
+import Chip from '@/components/ui/Chip';
+import IconButton from '@/components/ui/IconButton';
+import Label from '@/components/ui/Label';
+import Panel from '@/components/ui/Panel';
+import Select from '@/components/ui/Select';
+import TextArea from '@/components/ui/TextArea';
+import TextInput from '@/components/ui/TextInput';
 import { BOOK_KINDS, BOOK_TITLE_MAX } from '@/constants';
 
-import { FIELD, ISBN_CONFIDENCES, LABEL, metaText } from './constants';
+import { ISBN_CONFIDENCES, ISSN_PATTERN, metaText } from './constants';
 import { fileToCoverDataUrl, seriesOf } from './helpers';
 import type { IsbnConfidence } from '@/types';
 
@@ -23,11 +30,14 @@ export const BookDetail = ({
     readOnly ? onDenied?.() : applyChange(patch);
 
   return (
-    <aside
-      className={`pointer-events-auto relative flex min-h-0 w-full [scrollbar-width:none] flex-col overflow-y-auto rounded-2xl border border-ink/10 bg-white/85 px-[18px] pt-4 pb-3.5 text-sm shadow-[0_10px_30px_rgba(31,42,55,0.14)] backdrop-blur-md transition-[opacity,transform] duration-200 [&::-webkit-scrollbar]:hidden ${
+    <Panel
+      as="aside"
+      className={`pointer-events-auto relative flex min-h-0 w-full [scrollbar-width:none] flex-col overflow-y-auto px-[18px] pt-4 pb-3.5 transition-[opacity,transform] duration-200 [&::-webkit-scrollbar]:hidden ${
         book ? '' : 'pointer-events-none translate-x-5 opacity-0'
       }`}
       aria-hidden={!book}
+      // fiche masquée : ses champs ne doivent ni prendre le focus ni être lus
+      inert={!book}
       onFocusCapture={(e) => readOnly && e.target.matches('input,textarea') && onDenied?.()}
       onClickCapture={(e) => {
         if (readOnly && (e.target as HTMLElement).closest('select,input[type=file],[data-edit]')) {
@@ -36,22 +46,20 @@ export const BookDetail = ({
         }
       }}
     >
-      <Button
+      <IconButton
         variant="ghost"
-        className="absolute top-2 right-2 px-2 py-1 text-xl leading-none"
+        className="absolute top-2 right-2 rounded-lg px-2 py-1 text-xl max-md:min-h-11 max-md:min-w-11"
+        label="Ranger le livre"
         title="Ranger le livre (Échap)"
         onClick={onClose}
       >
         ×
-      </Button>
-      <label htmlFor="detailTitle" className={LABEL}>
-        Titre
-      </label>
-      <input
+      </IconButton>
+      <Label htmlFor="detailTitle">Titre</Label>
+      <TextInput
         id="detailTitle"
         readOnly={readOnly}
-        type="text"
-        className={`${FIELD} text-[17px] font-semibold`}
+        className="text-[17px] font-semibold"
         maxLength={BOOK_TITLE_MAX}
         autoComplete="off"
         value={book?.title ?? ''}
@@ -59,42 +67,31 @@ export const BookDetail = ({
       />
       <div className="grid grid-cols-[1fr_1fr_72px] gap-1.5">
         <div>
-          <label htmlFor="detailAuthor" className={LABEL}>
-            Auteur
-          </label>
-          <input
+          <Label htmlFor="detailAuthor">Auteur</Label>
+          <TextInput
             id="detailAuthor"
             readOnly={readOnly}
-            type="text"
-            className={FIELD}
             autoComplete="off"
             value={book?.author ?? ''}
             onChange={(e) => onChange({ author: e.target.value })}
           />
         </div>
         <div>
-          <label htmlFor="detailPublisher" className={LABEL}>
-            Éditeur
-          </label>
-          <input
+          <Label htmlFor="detailPublisher">Éditeur</Label>
+          <TextInput
             id="detailPublisher"
             readOnly={readOnly}
-            type="text"
-            className={FIELD}
             autoComplete="off"
             value={book?.publisher ?? ''}
             onChange={(e) => onChange({ publisher: e.target.value })}
           />
         </div>
         <div>
-          <label htmlFor="detailYear" className={LABEL}>
-            Année
-          </label>
-          <input
+          <Label htmlFor="detailYear">Année</Label>
+          <TextInput
             id="detailYear"
             readOnly={readOnly}
             type="number"
-            className={FIELD}
             min={1400}
             max={2100}
             value={book?.year ?? ''}
@@ -104,24 +101,23 @@ export const BookDetail = ({
           />
         </div>
         <div className="col-span-3">
-          <label htmlFor="detailIsbn" className={LABEL}>
-            {/^d{4}-d{3}[dX]$/i.test(book?.isbn ?? '') ? 'ISSN :' : 'ISBN :'}
-          </label>
+          <Label htmlFor="detailIsbn">
+            {ISSN_PATTERN.test(book?.isbn ?? '') ? 'ISSN :' : 'ISBN :'}
+          </Label>
           <div className="flex gap-1.5">
-            <input
+            <TextInput
               id="detailIsbn"
               readOnly={readOnly}
-              type="text"
               inputMode="numeric"
-              className={`${FIELD} min-w-0 flex-1`}
+              className="min-w-0 flex-1"
               autoComplete="off"
               value={book?.isbn ?? ''}
               onChange={(e) => onChange({ isbn: e.target.value, isbnConfidence: 'verifie' })}
             />
-            <select
+            <Select
               aria-label="Confiance dans l'ISBN"
               disabled={readOnly || !book?.isbn}
-              className={`${FIELD} w-28! shrink-0`}
+              className="w-28 shrink-0"
               value={book?.isbnConfidence ?? 'moyenne'}
               onChange={(e) =>
                 onChange({ isbn: book?.isbn, isbnConfidence: e.target.value as IsbnConfidence })
@@ -132,17 +128,14 @@ export const BookDetail = ({
                   {label}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
         </div>
       </div>
-      <label htmlFor="detailKind" className={LABEL}>
-        Type
-      </label>
-      <select
+      <Label htmlFor="detailKind">Type</Label>
+      <Select
         id="detailKind"
         disabled={readOnly}
-        className={FIELD}
         value={book?.kind ?? 'autre'}
         onChange={(e) => onChange({ kind: e.target.value as (typeof BOOK_KINDS)[number]['kind'] })}
       >
@@ -151,14 +144,12 @@ export const BookDetail = ({
             {label}
           </option>
         ))}
-      </select>
-      <label htmlFor="detailSummary" className={LABEL}>
-        Résumé
-      </label>
-      <textarea
+      </Select>
+      <Label htmlFor="detailSummary">Résumé</Label>
+      <TextArea
         id="detailSummary"
         readOnly={readOnly}
-        className={`${FIELD} min-h-24 flex-1 resize-none leading-relaxed`}
+        className="min-h-24 flex-1 resize-none leading-relaxed"
         placeholder="Écris le résumé ici…"
         value={book?.summary ?? ''}
         onChange={(e) => onChange({ summary: e.target.value })}
@@ -166,9 +157,7 @@ export const BookDetail = ({
       <div className="mt-1.5 text-xs text-muted">
         {book ? metaText(book.h, book.d, book.t, crateLabel) : ''}
       </div>
-      <label htmlFor="detailCover" className={LABEL}>
-        Couverture
-      </label>
+      <Label htmlFor="detailCover">Couverture</Label>
       <div className="flex flex-wrap items-center gap-1.5">
         {book?.cover && (
           // eslint-disable-next-line @next/next/no-img-element
@@ -186,41 +175,33 @@ export const BookDetail = ({
           }}
         />
         {book?.cover && (
-          <Button
-            variant="ghost"
-            className="px-1.5 py-1 text-xs"
-            data-edit
-            onClick={() => onChange({ cover: '' })}
-          >
+          <Button variant="ghost" size="sm" data-edit onClick={() => onChange({ cover: '' })}>
             Supprimer
           </Button>
         )}
       </div>
       {series && (
         <>
-          <div className={LABEL}>
+          <Label as="div">
             Série · {series.name} ({series.owned}/{series.total || series.owned})
-          </div>
+          </Label>
           <div className="flex flex-wrap gap-1">
             {series.items.map((it) =>
               it.id === null ? (
-                <span
+                <Chip
                   key={`missing-${it.num}`}
-                  className="flex h-9 min-w-9 cursor-default items-center justify-center rounded-lg border border-dashed border-ink/40 bg-ink/[0.06] px-1.5 text-xs leading-none text-muted"
+                  state="missing"
+                  label={it.label}
                   title={`${series.name} ${it.label} : manquant`}
-                >
-                  {it.label}
-                </span>
+                />
               ) : (
-                <Button
+                <Chip
                   key={it.id}
-                  variant={it.id === book?.id ? 'active' : 'default'}
-                  className="flex h-9 min-w-9 items-center justify-center px-1.5 py-0 text-xs leading-none"
+                  state={it.id === book?.id ? 'current' : 'owned'}
+                  label={it.label}
                   title={`Ouvrir ${series.name} ${it.label}`}
-                  onClick={() => it.id !== book?.id && onOpen(it.id!)}
-                >
-                  {it.label}
-                </Button>
+                  onClick={() => onOpen(it.id!)}
+                />
               ),
             )}
           </div>
@@ -233,11 +214,13 @@ export const BookDetail = ({
           title="Ranger le livre à sa place (Échap)"
           onMouseEnter={() => book?.crate && onHint(book.crate)}
           onMouseLeave={() => onHint(null)}
+          onFocus={() => book?.crate && onHint(book.crate)}
+          onBlur={() => onHint(null)}
           onClick={onClose}
         >
           {crateLabel ? `Ranger dans ${crateLabel}` : 'Ranger à côté'}
         </Button>
       </div>
-    </aside>
+    </Panel>
   );
 };

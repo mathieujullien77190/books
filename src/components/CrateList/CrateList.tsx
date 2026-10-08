@@ -1,3 +1,4 @@
+import Badge from '@/components/ui/Badge';
 import { SIZES } from '@/constants';
 
 import { EMPTY_TEXT } from './constants';
@@ -17,15 +18,16 @@ export const CrateList = ({ crates, labels, counts, selectedId, onPick }: CrateL
               className={`flex w-full cursor-pointer items-center gap-2 border-0 bg-transparent px-1 py-1.5 text-left text-sm ${
                 c.id === selectedId ? 'font-semibold text-accent' : 'text-ink'
               }`}
+              aria-current={c.id === selectedId || undefined}
               onClick={() => onPick(c.id)}
             >
-              <span className="w-8 flex-none font-semibold">{labels.get(c.id)}</span>
+              <span className="w-8 flex-none font-semibold">{labels.get(c.id) ?? ''}</span>
               <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
                 {SIZES[c.size].label.toLowerCase()} · {dimsText(c)}
               </span>
-              <span className="flex-none rounded bg-ink/5 px-1.5 py-px text-[11px] text-muted">
+              <Badge>
                 {n} livre{n > 1 ? 's' : ''}
-              </span>
+              </Badge>
             </button>
           </li>
         );

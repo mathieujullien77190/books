@@ -1,3 +1,5 @@
+import Badge from '@/components/ui/Badge';
+
 import type { BookListProps } from './types';
 
 export const BookList = ({ books, labels, onOpen, onRemove }: BookListProps) => (
@@ -12,22 +14,22 @@ export const BookList = ({ books, labels, onOpen, onRemove }: BookListProps) => 
           />
           <button
             type="button"
-            className="flex-1 cursor-pointer overflow-hidden border-0 bg-transparent p-0 text-left text-sm text-ellipsis whitespace-nowrap text-ink"
+            className="flex-1 cursor-pointer overflow-hidden border-0 bg-transparent p-0 text-left text-sm text-ellipsis whitespace-nowrap text-ink max-md:min-h-11"
             title={b.title}
             onClick={() => onOpen(b.id)}
           >
             {b.title}
           </button>
-          <span className="flex-none rounded bg-ink/5 px-1.5 py-px text-[11px] text-muted">
-            {tag}
-          </span>
+          <Badge>{tag}</Badge>
+          {/* même geste qu'avant (retrait immédiat, pas de confirmation) ; le verrou d'Édition est géré plus haut */}
           <button
             type="button"
-            className="cursor-pointer border-0 bg-transparent px-1.5 py-0.5 text-base leading-none text-muted hover:text-[#c0392b]"
+            className="cursor-pointer border-0 bg-transparent px-1.5 py-0.5 text-base leading-none text-muted hover:text-[#c0392b] max-md:min-h-11 max-md:min-w-11"
             title="Retirer"
+            aria-label={`Retirer « ${b.title} » de la bibliothèque`}
             onClick={() => onRemove(b.id)}
           >
-            ×
+            <span aria-hidden="true">×</span>
           </button>
         </li>
       );

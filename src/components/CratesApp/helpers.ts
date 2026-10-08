@@ -1,9 +1,10 @@
 import { useState, useSyncExternalStore } from 'react';
 
+import { EDIT_TOKEN_KEY, readStorage, writeStorage } from '@/components/shared';
 import { CrateEngine } from '@/engine/CrateEngine';
 import type { Snapshot } from '@/types';
 
-import { EDIT_TOKEN_KEY, EMPTY_SNAPSHOT } from './constants';
+import { EMPTY_SNAPSHOT } from './constants';
 import type { EngineHolder } from './types';
 
 const createHolder = (): EngineHolder => {
@@ -70,22 +71,9 @@ export const useIsPhone = (): boolean =>
     () => false,
   );
 
-const readToken = (): string | null => {
-  try {
-    return localStorage.getItem(EDIT_TOKEN_KEY);
-  } catch {
-    return null;
-  }
-};
-
-const writeToken = (token: string | null): void => {
-  try {
-    if (token) localStorage.setItem(EDIT_TOKEN_KEY, token);
-    else localStorage.removeItem(EDIT_TOKEN_KEY);
-  } catch {
-    // stockage indisponible : le déverrouillage ne dure que pour cette session
-  }
-};
+// sans stockage, le déverrouillage ne dure que pour cette session
+const readToken = (): string | null => readStorage(EDIT_TOKEN_KEY);
+const writeToken = (token: string | null): void => writeStorage(EDIT_TOKEN_KEY, token || null);
 
 const callEdit = async (
   body: { code: string } | { token: string },

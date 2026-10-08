@@ -1,5 +1,13 @@
 import type { Crate, CrateSize, Dims, Id } from '@/types';
 
+export type DimFieldProps = {
+  label: string;
+  /** Cote actuelle, en cm (au demi-centimètre). */
+  value: number;
+  /** Nouvelle cote validée, en unités de scène (cm / 10). */
+  onCommit: (dim: number) => void;
+};
+
 export type CrateSelectionProps = {
   crate: Crate | null;
   /** Numéro peint au fond (G1, M2, P1…). */

@@ -2,72 +2,25 @@
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 
+import { KEY_STORAGE, MODEL_STORAGE, useLocalStorageState } from '@/components/shared';
 import Button from '@/components/ui/Button';
+import IconButton from '@/components/ui/IconButton';
+import Select from '@/components/ui/Select';
+import TextArea from '@/components/ui/TextArea';
+import TextInput from '@/components/ui/TextInput';
 
-import { AI_ERRORS, EDIT_TOKEN_KEY, KEY_STORAGE, MODEL_OPTIONS, MODEL_STORAGE } from './constants';
-import type { AiTurn } from './types';
-
-/** La clé reste dans ce navigateur (jamais en base) : chacun utilise la sienne. */
-const readKey = (): string => {
-  try {
-    return localStorage.getItem(KEY_STORAGE) ?? '';
-  } catch {
-    return '';
-  }
-};
-
-/** Jeton d'Édition délivré par le serveur : prouve que le code a été saisi (les modifications de Claude en ont besoin). */
-const readEditToken = (): string | null => {
-  try {
-    return localStorage.getItem(EDIT_TOKEN_KEY);
-  } catch {
-    return null;
-  }
-};
-
-const readModel = (): string => {
-  try {
-    const m = localStorage.getItem(MODEL_STORAGE);
-    return MODEL_OPTIONS.some((o) => o.id === m) ? m! : 'haiku';
-  } catch {
-    return 'haiku';
-  }
-};
-
-const writeKey = (key: string): void => {
-  try {
-    if (key) localStorage.setItem(KEY_STORAGE, key);
-    else localStorage.removeItem(KEY_STORAGE);
-  } catch {
-    // stockage indisponible (navigation privée) : la clé reste en mémoire pour la session
-  }
-};
-
-/** Reconnaissance vocale du navigateur (Chrome, Edge, Safari) : types minimaux, absents de lib.dom. */
-type Recognition = {
-  lang: string;
-  interimResults: boolean;
-  continuous: boolean;
-  onresult:
-    | ((e: {
-        results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal: boolean }>;
-      }) => void)
-    | null;
-  onend: (() => void) | null;
-  onerror: ((e: { error: string }) => void) | null;
-  start: () => void;
-  stop: () => void;
-};
-
-const speechCtor = (): (new () => Recognition) | null => {
-  const w = window as unknown as Record<string, new () => Recognition>;
-  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
-};
+import { DEFAULT_MODEL, MODEL_OPTIONS } from './constants';
+import { useAiChat } from './useAiChat';
+import { useSpeechRecognition } from './useSpeechRecognition';
 
 const timeOf = (at?: number): string =>
   at ? new Date(at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
 
 const BOOK_LINK = /\[([^\]]+)\]\(livre:([A-Za-z0-9_-]+)\)/g;
+
+/** La clé est stockée sans espaces autour, mais gardée telle quelle dans le champ. */
+const trimKey = (key: string): string => key.trim();
+const isModel = (id: string): boolean => MODEL_OPTIONS.some((o) => o.id === id);
 
 /** Texte d'une réponse : les liens [Titre](livre:id) deviennent des boutons qui affichent le livre en 3D. */
 const renderAnswer = (text: string, onOpenBook?: (id: string) => void) => {
@@ -103,217 +56,145 @@ export const AiTab = ({
   onChanged?: () => void;
   onOpenBook?: (id: string) => void;
 }) => {
-  const [key, setKey] = useState(readKey);
-  const [model, setModel] = useState(readModel);
+  // la clé reste dans ce navigateur (jamais en base) : chacun utilise la sienne
+  const [key, setKey] = useLocalStorageState(KEY_STORAGE, '', { normalize: trimKey });
+  const [model, setModel] = useLocalStorageState(MODEL_STORAGE, DEFAULT_MODEL, {
+    validate: isModel,
+  });
   /** Champ de la clé replié derrière le bouton 🔑 ; ouvert d'office tant qu'il n'y a pas de clé. */
-  const [showKey, setShowKey] = useState(() => !readKey());
-  const [question, setQuestion] = useState('');
-  const [turns, setTurns] = useState<AiTurn[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
+  const [showKey, setShowKey] = useState(() => !key);
+  const { question, setQuestion, turns, busy, error, setError, send, reset } = useAiChat({
+    apiKey: key,
+    model,
+    onChanged,
+  });
+  /** Dicte la question : le texte s'affiche pendant qu'on parle, puis part tout seul à la fin de la phrase. */
+  const {
+    listening,
+    canSpeak,
+    toggle: toggleMic,
+  } = useSpeechRecognition({
+    onTranscript: setQuestion,
+    onFinal: (heard) => void send(heard),
+    onStart: () => setError(''),
+    onError: setError,
+  });
   const end = useRef<HTMLDivElement>(null);
-  const [listening, setListening] = useState(false);
-  const [canSpeak] = useState(() => typeof window !== 'undefined' && !!speechCtor());
-  const recognition = useRef<Recognition | null>(null);
-  const sendRef = useRef<(q: string) => Promise<void>>(async () => {});
+  const hasKey = !!key.trim();
 
   useEffect(() => {
     end.current?.scrollIntoView({ block: 'nearest' });
   }, [turns, busy]);
-
-  const send = async (text: string): Promise<void> => {
-    const q = text.trim();
-    if (!q || !key.trim() || busy) return;
-    const next: AiTurn[] = [...turns, { role: 'user', content: q, at: Date.now() }];
-    setTurns(next);
-    setQuestion('');
-    setError('');
-    setBusy(true);
-    try {
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          key: key.trim(),
-          messages: next.map(({ role, content }) => ({ role, content })),
-          token: readEditToken(),
-          model,
-        }),
-      });
-      const data = (await res.json()) as {
-        ok: boolean;
-        text?: string;
-        reason?: string;
-        changed?: boolean;
-        actions?: string[];
-      };
-      if (data.ok && data.text) {
-        setTurns([
-          ...next,
-          { role: 'assistant', content: data.text, actions: data.actions, at: Date.now() },
-        ]);
-        if (data.changed) onChanged?.();
-      } else {
-        setTurns(turns); // la question reste à poser : on la remet dans le champ
-        setQuestion(q);
-        setError(AI_ERRORS[data.reason ?? 'error'] ?? AI_ERRORS.error!);
-      }
-    } catch {
-      setTurns(turns);
-      setQuestion(q);
-      setError(AI_ERRORS.error!);
-    } finally {
-      setBusy(false);
-    }
-  };
-  useEffect(() => {
-    sendRef.current = send;
-  });
 
   const ask = (e: FormEvent): void => {
     e.preventDefault();
     void send(question);
   };
 
-  /** Dicte la question : le texte s'affiche pendant qu'on parle, puis part tout seul à la fin de la phrase. */
-  const toggleMic = (): void => {
-    if (listening) {
-      recognition.current?.stop();
-      return;
-    }
-    const Ctor = speechCtor();
-    if (!Ctor) return;
-    const rec = new Ctor();
-    rec.lang = 'fr-FR';
-    rec.interimResults = true;
-    rec.continuous = false;
-    let heard = '';
-    rec.onresult = (e) => {
-      heard = Array.from(e.results)
-        .map((r) => r[0]?.transcript ?? '')
-        .join(' ')
-        .trim();
-      setQuestion(heard);
-    };
-    rec.onerror = (e) => {
-      if (e.error === 'not-allowed' || e.error === 'service-not-allowed')
-        setError('Micro refusé : autorise-le dans le navigateur.');
-      else if (e.error !== 'no-speech' && e.error !== 'aborted')
-        setError('La dictée n’a pas fonctionné.');
-    };
-    rec.onend = () => {
-      setListening(false);
-      recognition.current = null;
-      if (heard) void sendRef.current(heard);
-    };
-    recognition.current = rec;
-    setError('');
-    setListening(true);
-    rec.start();
-  };
-
-  useEffect(() => () => recognition.current?.stop(), []);
+  const showLog = turns.length > 0 || busy;
 
   return (
     <div className="border-t border-ink/10 px-3.5 py-2">
       <div className="mb-2 flex items-center gap-1.5">
-        <button
-          type="button"
-          className={`h-8 w-9 shrink-0 cursor-pointer rounded-lg border bg-white p-0 text-base ${
-            showKey ? 'border-ink' : 'border-ink/10 hover:border-accent'
-          }`}
-          title="Clé API Anthropic"
-          aria-label="Clé API Anthropic"
+        <IconButton
+          className={`h-8 w-9 shrink-0 rounded-lg bg-white text-base ${showKey ? 'border-ink' : ''}`}
+          label="Clé API Anthropic"
           aria-expanded={showKey}
           onClick={() => setShowKey((v) => !v)}
         >
           🔑
-        </button>
+        </IconButton>
         {showKey && (
-          <input
+          <TextInput
             id="aiKey"
             type="password"
-            className="h-8 min-w-0 flex-1 rounded-lg border border-ink/10 bg-white px-2.5 text-sm text-ink"
+            className="h-8 min-w-0 flex-1 py-0"
             placeholder="sk-ant-…"
             aria-label="Clé API Anthropic"
             autoComplete="off"
             spellCheck={false}
             value={key}
-            onChange={(e) => {
-              setKey(e.target.value);
-              writeKey(e.target.value.trim());
-            }}
+            onChange={(e) => setKey(e.target.value)}
           />
         )}
-        <select
+        <Select
           aria-label="Modèle"
-          className={`h-8 rounded-lg border border-ink/10 bg-white px-2 text-sm text-ink ${
-            showKey ? 'w-28 shrink-0' : 'min-w-0 flex-1'
-          }`}
+          className={`h-8 px-2 py-0 ${showKey ? 'w-28 shrink-0' : 'w-auto min-w-0 flex-1'}`}
           value={model}
-          onChange={(e) => {
-            setModel(e.target.value);
-            try {
-              localStorage.setItem(MODEL_STORAGE, e.target.value);
-            } catch {
-              // stockage indisponible : le choix vaut pour la session
-            }
-          }}
+          onChange={(e) => setModel(e.target.value)}
         >
           {MODEL_OPTIONS.map((o) => (
             <option key={o.id} value={o.id}>
               {o.label}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
-      {(turns.length > 0 || busy) && (
-        <div className="mb-2 flex max-h-72 [scrollbar-width:thin] flex-col gap-1.5 overflow-y-auto rounded-xl bg-[#efeae2] p-2 text-sm">
-          {turns.map((t, i) => {
-            const mine = t.role === 'user';
-            return (
-              <div
-                key={i}
-                className={`max-w-[85%] rounded-lg px-2.5 py-1.5 whitespace-pre-wrap text-[#111b21] shadow-sm ${
-                  mine
-                    ? 'self-end rounded-tr-none bg-[#d9fdd3]'
-                    : 'self-start rounded-tl-none bg-white'
-                }`}
-              >
-                {!mine && (
-                  <span className="mb-0.5 block text-xs font-semibold text-[#06795f]">Claude</span>
-                )}
-                {t.actions?.map((a) => (
-                  <span key={a} className="mb-1 block text-xs text-[#667781]">
-                    ✅ {a}
+      {/* zone toujours présente (vide au départ) pour que les lecteurs d'écran lisent les messages qui arrivent */}
+      <div
+        role="log"
+        aria-label="Conversation avec Claude"
+        aria-live="polite"
+        className={
+          showLog
+            ? 'mb-2 flex max-h-72 [scrollbar-width:thin] flex-col gap-1.5 overflow-y-auto rounded-xl bg-[#efeae2] p-2 text-sm'
+            : undefined
+        }
+      >
+        {showLog && (
+          <>
+            {turns.map((t, i) => {
+              const mine = t.role === 'user';
+              return (
+                <div
+                  key={i}
+                  className={`max-w-[85%] rounded-lg px-2.5 py-1.5 whitespace-pre-wrap text-[#111b21] shadow-sm ${
+                    mine
+                      ? 'self-end rounded-tr-none bg-[#d9fdd3]'
+                      : 'self-start rounded-tl-none bg-white'
+                  }`}
+                >
+                  {!mine && (
+                    <span className="mb-0.5 block text-xs font-semibold text-[#06795f]">
+                      Claude
+                    </span>
+                  )}
+                  {t.actions?.map((a) => (
+                    <span key={a} className="mb-1 block text-xs text-[#667781]">
+                      ✅ {a}
+                    </span>
+                  ))}
+                  {mine ? t.content : renderAnswer(t.content, onOpenBook)}
+                  <span className="mt-0.5 block text-right text-[10px] text-[#667781]">
+                    {timeOf(t.at)}
                   </span>
-                ))}
-                {mine ? t.content : renderAnswer(t.content, onOpenBook)}
-                <span className="mt-0.5 block text-right text-[10px] text-[#667781]">
-                  {timeOf(t.at)}
-                </span>
+                </div>
+              );
+            })}
+            {busy && (
+              <div className="max-w-[85%] self-start rounded-lg rounded-tl-none bg-white px-2.5 py-1.5 text-xs text-[#667781] shadow-sm">
+                Claude écrit…
               </div>
-            );
-          })}
-          {busy && (
-            <div className="max-w-[85%] self-start rounded-lg rounded-tl-none bg-white px-2.5 py-1.5 text-xs text-[#667781] shadow-sm">
-              Claude écrit…
-            </div>
-          )}
-          <div ref={end} />
-        </div>
+            )}
+            <div ref={end} />
+          </>
+        )}
+      </div>
+      {error && (
+        <p role="alert" className="m-0 mb-1.5 text-xs text-[#c0392b]">
+          {error}
+        </p>
       )}
-      {error && <p className="m-0 mb-1.5 text-xs text-[#c0392b]">{error}</p>}
       <form onSubmit={ask} className="flex flex-col gap-1.5">
-        <textarea
-          className="block h-24 min-h-16 w-full resize-y rounded-lg border border-ink/10 bg-white px-2.5 py-1.5 text-sm leading-relaxed text-ink"
+        <TextArea
+          className="block h-24 min-h-16 resize-y py-1.5 leading-relaxed"
           placeholder={
-            key.trim()
+            hasKey
               ? 'Ta question sur la bibliothèque… (Entrée pour envoyer, Maj+Entrée pour un retour à la ligne)'
               : 'Colle d’abord ta clé…'
           }
           aria-label="Question pour Claude"
-          disabled={!key.trim()}
+          disabled={!hasKey}
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
           onKeyDown={(e) => {
@@ -326,10 +207,10 @@ export const AiTab = ({
         <div className="flex items-center justify-end gap-1.5">
           {canSpeak && (
             <Button
-              type="button"
               variant={listening ? 'active' : 'default'}
+              pressed={listening}
               aria-label={listening ? 'Arrêter la dictée' : 'Parler à Claude'}
-              disabled={busy || !key.trim()}
+              disabled={busy || !hasKey}
               onClick={toggleMic}
             >
               {listening ? '⏹ J’écoute…' : '🎤 Parler'}
@@ -338,7 +219,8 @@ export const AiTab = ({
           <Button
             variant="primary"
             type="submit"
-            disabled={busy || !key.trim() || !question.trim()}
+            loading={busy}
+            disabled={!hasKey || !question.trim()}
           >
             Envoyer
           </Button>
@@ -347,11 +229,8 @@ export const AiTab = ({
       {turns.length > 0 && (
         <button
           type="button"
-          className="mt-1.5 cursor-pointer border-0 bg-transparent p-0 text-xs text-muted hover:text-ink"
-          onClick={() => {
-            setTurns([]);
-            setError('');
-          }}
+          className="mt-1.5 cursor-pointer border-0 bg-transparent p-0 text-xs text-muted hover:text-ink max-md:min-h-11"
+          onClick={reset}
         >
           Nouvelle conversation
         </button>

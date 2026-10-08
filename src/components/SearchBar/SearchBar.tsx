@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 
 import BookList from '@/components/BookList';
+import Panel from '@/components/ui/Panel';
 
 import { MAX_RESULTS, SEARCH_MIN } from './constants';
 import { searchBooks } from './helpers';
@@ -56,9 +57,7 @@ export const SearchBar = ({ books, labels, onOpen, onRemove, onShowAll }: Search
           aria-label="Rechercher un livre"
           autoComplete="off"
           value={query}
-          onChange={(e) => {
-            setQuery(e.target.value);
-          }}
+          onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Escape') clear();
             else if (e.key === 'Enter') validate();
@@ -86,7 +85,7 @@ export const SearchBar = ({ books, labels, onOpen, onRemove, onShowAll }: Search
         </button>
       </div>
       {q.length >= SEARCH_MIN && (
-        <div className="pointer-events-auto mt-2 rounded-2xl border border-ink/10 bg-white/95 px-5 py-3 text-sm shadow-[0_10px_30px_rgba(31,42,55,0.14)] backdrop-blur-md">
+        <Panel className="pointer-events-auto mt-2 bg-white/95 px-5 py-3" aria-live="polite">
           {results.length === 0 ? (
             <p className="m-0 py-1 text-muted">Aucun livre ne correspond.</p>
           ) : (
@@ -99,7 +98,7 @@ export const SearchBar = ({ books, labels, onOpen, onRemove, onShowAll }: Search
               <BookList books={results} labels={labels} onOpen={open} onRemove={onRemove} />
             </>
           )}
-        </div>
+        </Panel>
       )}
     </div>
   );

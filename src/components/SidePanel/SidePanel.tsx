@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import CrateList from '@/components/CrateList';
 import CrateSelection from '@/components/CrateSelection';
 import Button from '@/components/ui/Button';
+import Panel from '@/components/ui/Panel';
+import TextInput from '@/components/ui/TextInput';
 import { APP_NAME, SIZE_KEYS, SIZES } from '@/constants';
 import { crateLabels } from '@/helpers';
 
@@ -33,12 +35,16 @@ export const SidePanel = ({
 }: SidePanelProps) => {
   const [open, setOpen] = useState(defaultOpen);
   const [wrongCode, setWrongCode] = useState(false);
+  const [code, setCode] = useState('');
   const edit = snapshot.mode === 'edit';
   const selected = snapshot.crates.find((c) => c.id === snapshot.selectedId) ?? null;
-  const labels = crateLabels(snapshot.crates);
+  const labels = useMemo(() => crateLabels(snapshot.crates), [snapshot.crates]);
 
   return (
-    <aside className="pointer-events-auto w-full shrink-0 rounded-2xl border border-ink/10 bg-white/85 text-sm shadow-[0_10px_30px_rgba(31,42,55,0.12)] backdrop-blur-md">
+    <Panel
+      as="aside"
+      className="pointer-events-auto w-full shrink-0 shadow-[0_10px_30px_rgba(31,42,55,0.12)]"
+    >
       <button
         type="button"
         className="flex w-full cursor-pointer items-center justify-between rounded-2xl px-3.5 py-2 text-left"
@@ -60,6 +66,7 @@ export const SidePanel = ({
               <Button
                 key={m.mode}
                 variant={snapshot.mode === m.mode ? 'active' : 'default'}
+                pressed={snapshot.mode === m.mode}
                 title={
                   editLocked && m.mode === 'edit'
                     ? 'Verrouillé : saisis le code ci-dessous'
@@ -77,27 +84,34 @@ export const SidePanel = ({
               className="mt-1.5"
               onSubmit={async (e) => {
                 e.preventDefault();
-                const input = e.currentTarget.elements.namedItem('editCode') as HTMLInputElement;
-                const ok = await onUnlockEdit?.(input.value);
+                const ok = await onUnlockEdit?.(code);
                 setWrongCode(!ok);
-                input.value = '';
+                setCode('');
               }}
             >
               <div className="flex items-center gap-1.5">
                 <label htmlFor="editCode" className="text-xs text-muted">
                   Code
                 </label>
-                <input
+                <TextInput
                   id="editCode"
                   name="editCode"
                   type="password"
-                  className="min-w-0 flex-1 rounded-lg border border-ink/10 bg-white px-2.5 py-1.5 text-sm text-ink"
+                  className="min-w-0 flex-1 py-1.5"
                   autoComplete="off"
-                  onChange={() => setWrongCode(false)}
+                  value={code}
+                  onChange={(e) => {
+                    setCode(e.target.value);
+                    setWrongCode(false);
+                  }}
                 />
                 <Button type="submit">OK</Button>
               </div>
-              {wrongCode && <p className="m-0 mt-1 text-xs text-[#c0392b]">Code incorrect.</p>}
+              {wrongCode && (
+                <p role="alert" className="m-0 mt-1 text-xs text-[#c0392b]">
+                  Code incorrect.
+                </p>
+              )}
             </form>
           )}
 
@@ -143,6 +157,6 @@ export const SidePanel = ({
           )}
         </div>
       )}
-    </aside>
+    </Panel>
   );
 };

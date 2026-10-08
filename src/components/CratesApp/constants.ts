@@ -20,11 +20,6 @@ export const EMPTY_SNAPSHOT: Snapshot = {
   mode: 'view',
 };
 
-export const NOOP_SUBSCRIBE = (): (() => void) => () => {};
-
-/** Clé localStorage du jeton d'Édition délivré par le serveur (/api/edit). */
-export const EDIT_TOKEN_KEY = 'edit-token';
-
 /** Messages affichés quand on tente de modifier alors que l'Édition est verrouillée. */
 export const DENIED_MESSAGES = [
   '🐱 Pas touche ! Seul le Super Matou a le droit de modifier la bibliothèque.',
@@ -36,3 +31,6 @@ export const DENIED_MESSAGES = [
 
 /** Durée d'affichage du message (ms). */
 export const DENIED_TOAST_MS = 3200;
+
+/** Ombre des boutons flottants posés sur la scène. */
+export const FLOAT_SHADOW = 'shadow-[0_10px_30px_rgba(31,42,55,0.14)]';

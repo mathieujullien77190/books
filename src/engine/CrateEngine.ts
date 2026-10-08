@@ -125,8 +125,8 @@ const readEditToken = (): string | null => {
 
 /** Caisse sur laquelle se perche la mésange, et retrait de son centre par rapport aux bords du dessus. */
 const MESANGE_PERCH = 'P5';
-/** Nombre de livres manquants par tas (au-delà, un nouveau tas à gauche du précédent). */
-const GHOST_PILE = 28;
+/** Nombre de livres manquants par tas : une seule colonne (mettre un nombre pour la couper en plusieurs). */
+const GHOST_PILE = Infinity;
 const MESANGE_MARGIN = 0.2;
 /** Elle s'enfonce un peu dans le dessus de la caisse pour que ses pattes touchent le bois. */
 const MESANGE_SINK = 0.24;

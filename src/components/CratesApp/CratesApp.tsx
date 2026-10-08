@@ -1,8 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import SearchBar from '@/components/SearchBar';
+import ToBuyList from '@/components/ToBuyList';
 import IconButton from '@/components/ui/IconButton';
 import LoadingOverlay from '@/components/ui/LoadingOverlay';
 import Toast from '@/components/ui/Toast';
@@ -24,6 +25,11 @@ export const CratesApp = ({ className = '' }: CratesAppProps) => {
   useEffect(() => {
     engine?.setCrateClickZoom(!phone); // téléphone : plus de zoom au toucher d'une caisse, seulement au pincement
   }, [engine, phone]);
+  const [showBuy, setShowBuy] = useState(false);
+  useEffect(() => {
+    engine?.setNoteHandler(() => setShowBuy(true)); // clic sur le papier « Livres à acheter »
+    return () => engine?.setNoteHandler(null);
+  }, [engine]);
   // identité stable : une ref inline serait détachée/rattachée à chaque rendu et recréerait le moteur
   const mountCanvas = useCallback(
     (el: HTMLCanvasElement | null) => holder.mountCanvas(el),
@@ -59,6 +65,7 @@ export const CratesApp = ({ className = '' }: CratesAppProps) => {
         🎯
       </IconButton>
       {snap.loading && <LoadingOverlay message="Chargement de la bibliothèque…" />}
+      {showBuy && <ToBuyList books={snap.books} onClose={() => setShowBuy(false)} />}
       <Toast message={toast} />
       <div
         ref={attachTooltip}

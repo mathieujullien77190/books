@@ -183,6 +183,9 @@ export class CrateEngine {
   /** Tas à gauche des caisses : un livre translucide par tome manquant. */
   private readonly ghostGroup = new THREE.Group();
   private ghostKey = '';
+  /** Le papier « Livres à acheter » posé sur le tas, et ce qu'il déclenche au clic. */
+  private note: THREE.Group | null = null;
+  private onNoteClick: (() => void) | null = null;
   private readonly bookRigs = new Map<Id, BookRig>();
 
   private crates: Crate[] = [];
@@ -517,7 +520,8 @@ export class CrateEngine {
       const note = buildNote(missing.length);
       note.position.set(bb.minX - 1.9, height + 0.01, bb.cz);
       this.ghostGroup.add(note);
-    }
+      this.note = note;
+    } else this.note = null;
   }
 
   /** La mésange est perchée sur le coin avant droit de la caisse `MESANGE_PERCH` et la suit si on la déplace. */
@@ -854,6 +858,11 @@ export class CrateEngine {
   /** Un clic sur une caisse zoome dessus (désactivé sur téléphone : on zoome au pincement). */
   setCrateClickZoom(on: boolean): void {
     this.crateClickZoom = on;
+  }
+
+  /** Fonction appelée au clic sur le papier « Livres à acheter » (null : rien). */
+  setNoteHandler(handler: (() => void) | null): void {
+    this.onNoteClick = handler;
   }
 
   /** Fonction appelée quand un geste cherche à modifier la bibliothèque en Lecture (null : rien). */
@@ -1273,6 +1282,16 @@ export class CrateEngine {
         this.rotateCrate(this.selectedId, axis, sign);
         return;
       }
+    }
+    // papier « Livres à acheter » : un clic ouvre la liste des tomes manquants
+    if (
+      this.note &&
+      this.onNoteClick &&
+      !this.openId &&
+      this.raycaster.intersectObject(this.note, true).length
+    ) {
+      this.onNoteClick();
+      return;
     }
     // mésange (Édition) : ses flèches déplacent d'un cran, un clic sur elle la sélectionne
     if (this.mode === 'edit' && this.decorGizmo.group.visible) {

@@ -59,7 +59,7 @@ export const ViewMenu = ({ onRecenter, turbo, onToggleTurbo }: ViewMenuProps) =>
             pressed={turbo}
             variant={turbo ? 'active' : 'default'}
             className="justify-start"
-            title="Livres en pavés de couleur, sans mésange ni ombres : plus fluide"
+            title="Livres seuls en pavés de couleur, sans caisses, mésange ni ombres : plus fluide"
             onClick={() => {
               onToggleTurbo();
               setOpen(false);

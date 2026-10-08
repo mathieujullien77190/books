@@ -89,7 +89,7 @@ export type Snapshot = {
   loading: boolean;
   /** La base n'a pas pu être lue : l'interface propose de réessayer (rien n'est envoyé en attendant). */
   loadError: boolean;
-  /** Mode léger : livres rangés en pavés d'une couleur, sans mésange ni ombres. */
+  /** Mode léger : livres rangés en pavés d'une couleur, sans caisses, mésange ni ombres. */
   lite: boolean;
   selectedId: Id | null;
   openId: Id | null;

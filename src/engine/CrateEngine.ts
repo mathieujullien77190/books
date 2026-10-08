@@ -349,8 +349,8 @@ export class CrateEngine {
   }
 
   /**
-   * Mode léger : livres rangés en pavés d'une couleur, pas de mésange ni d'ombres (pour les téléphones qui
-   * rament). Le choix est gardé sur l'appareil.
+   * Mode léger : livres rangés en pavés d'une couleur, sans caisses, mésange ni ombres (pour les téléphones
+   * qui rament). Le choix est gardé sur l'appareil.
    */
   setLite(on: boolean): void {
     if (this.lite === on) return;
@@ -362,6 +362,7 @@ export class CrateEngine {
       // stockage indisponible : le choix vaut pour cette visite seulement
     }
     this.sun.castShadow = !on;
+    for (const rig of this.crateRigs.values()) rig.group.visible = !on;
     for (const [id, rig] of this.bookRigs) {
       const b = this.books.find((x) => x.id === id);
       if (b) applyLiteMode(rig, b, this.aniso);
@@ -905,6 +906,7 @@ export class CrateEngine {
     }
     if (!rig) {
       rig = buildCrate(c.id, c.size, dims);
+      rig.group.visible = !this.lite; // mode léger : les livres seuls, sans caisses
       this.scene.add(rig.group);
       this.crateRigs.set(c.id, rig);
       this.hitboxes.push(rig.hit);

@@ -116,7 +116,7 @@ export class Showcase {
       const nr = id && rigs.get(id);
       if (!nr) return;
       const side = i === 0 ? -1 : 1;
-      const gap = gaps[i] ?? 0;
+      const gap = gaps[i]!;
       nr.target
         .copy(camera.position)
         .addScaledVector(this._fwd, dist + 0.6)

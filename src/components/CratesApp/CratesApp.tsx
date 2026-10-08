@@ -132,6 +132,14 @@ export const CratesApp = ({ className = '' }: CratesAppProps) => {
           {snap.openId && (
             <>
               <Button
+                className="fixed top-[92px] right-3 z-30 h-10 w-10 rounded-full bg-white/90 p-0 text-lg shadow-[0_10px_30px_rgba(31,42,55,0.2)] backdrop-blur-md"
+                aria-label="Fermer le livre"
+                title="Fermer"
+                onClick={() => engine?.closeBook()}
+              >
+                ✕
+              </Button>
+              <Button
                 className="fixed top-1/2 left-2 z-20 h-12 w-10 -translate-y-1/2 rounded-full bg-white/80 p-0 text-2xl backdrop-blur-md"
                 aria-label="Livre précédent"
                 disabled={!snap.hasPrev}

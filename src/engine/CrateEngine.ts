@@ -209,8 +209,11 @@ export class CrateEngine {
     controls.minDistance = 1;
     controls.maxDistance = 60;
     controls.zoomToCursor = true; // la molette zoome vers le point sous le curseur, pas vers le centre de la vue
-    // clic molette = tourner autour, clic droit = déplacer la vue, clic gauche réservé aux caisses
-    controls.mouseButtons = { LEFT: null, MIDDLE: THREE.MOUSE.ROTATE, RIGHT: THREE.MOUSE.PAN };
+    // toujours face à la bibliothèque : pas de rotation, seulement déplacer la vue (clic droit ou molette
+    // enfoncée, un doigt) et zoomer (molette, pincement). Clic gauche réservé aux caisses et aux livres.
+    controls.enableRotate = false;
+    controls.mouseButtons = { LEFT: null, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.PAN };
+    controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_PAN };
     this.controls = controls;
 
     // couche 1 : livre sorti, rendu par-dessus la scène
@@ -748,18 +751,6 @@ export class CrateEngine {
   }
 
   // ---------- API publique : vue ----------
-  /** Décale la vue d'un cran vers la droite / le haut de l'écran (dx, dy = -1, 0 ou 1), proportionnel au recul. */
-  pan(dx: number, dy: number): void {
-    const dist = this.camera.position.distanceTo(this.controls.target);
-    const step = dist * 0.02;
-    this.camera.updateMatrixWorld();
-    this._tv.setFromMatrixColumn(this.camera.matrixWorld, 0).multiplyScalar(dx * step);
-    this._fwd.setFromMatrixColumn(this.camera.matrixWorld, 1).multiplyScalar(dy * step);
-    this._tv.add(this._fwd);
-    this.camera.position.add(this._tv);
-    this.controls.target.add(this._tv);
-  }
-
   recenter(): void {
     const bb = this.bounds();
     const extent = Math.max(bb.maxX - bb.minX, bb.maxZ - bb.minZ, bb.maxY * 1.6, 6);

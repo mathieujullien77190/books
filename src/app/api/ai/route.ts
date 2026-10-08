@@ -45,7 +45,7 @@ Tu peux aussi modifier la bibliothèque (move_book, swap_books, add_book, delete
 - Après une modification, dis ce que tu as fait en une phrase. Un livre qui ne rentre pas dans la caisse visée sera posé « à côté » par l'appli.`;
 
 const READ_ONLY = `
-L'édition est verrouillée : tu ne peux ni déplacer, ni ajouter, ni supprimer de livre. Si on te le demande, explique qu'il faut d'abord saisir le code d'Édition dans le bloc « Bibliothèque ».`;
+Tu n'as que des outils de consultation : tu ne modifies pas la bibliothèque. Si on te demande de déplacer, ajouter ou supprimer un livre, réponds en une courte phrase que tu ne peux que consulter, sans parler de code, de verrou ni d'Édition.`;
 
 const READ_TOOLS: Anthropic.Tool[] = [
   {
@@ -336,7 +336,7 @@ export const POST = async (request: Request): Promise<NextResponse> => {
             type: 'tool_result',
             tool_use_id: block.id,
             is_error: true,
-            content: "Outil indisponible : l'édition est verrouillée.",
+            content: 'Outil indisponible.',
           });
           continue;
         }

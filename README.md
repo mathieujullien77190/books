@@ -13,9 +13,8 @@ MongoDB ; un assistant Claude peut répondre aux questions sur la collection et 
 - **Recherche** en grand en haut : sans accents, avec une faute de frappe tolérée ; Entrée présente tous les
   résultats devant toi, du premier au dernier.
 - **Édition** : déplacer et tourner les caisses. Protégée par un code vérifié côté serveur.
-- **Calepin** : onglet _Notes_ (enregistrées en base) et onglet _IA_ pour interroger Claude sur ta bibliothèque,
-  avec ta propre clé API.
-- **Téléphone** : un seul livre à la fois, au maximum de l'écran, parcouru avec ‹ ›, boutons Biblio et Calepin.
+- **Claude** : une conversation pour interroger ta bibliothèque, avec ta propre clé API.
+- **Téléphone** : un seul livre à la fois, au maximum de l'écran, parcouru avec ‹ ›, boutons Biblio et Claude.
 
 ## Installation
 
@@ -50,8 +49,8 @@ npm run format       # prettier
 
 ## Données
 
-Trois collections dans MongoDB : `crates` (caisses : taille, position, orientation), `books` (livres : titre,
-auteur, couverture, dimensions, caisse, ordre), `notes` (calepin), plus `meta`
+Deux collections dans MongoDB : `crates` (caisses : taille, position, orientation), `books` (livres : titre,
+auteur, couverture, dimensions, caisse, ordre), plus `meta`
 (révision de l'état). Les couvertures sont des fichiers dans `public/covers/`.
 
 L'appli envoie l'état complet à la base à chaque modification. Une révision (`meta.rev`) empêche une page
@@ -59,7 +58,7 @@ ouverte d'écraser une modification faite ailleurs : elle recharge la base à la
 
 ## Assistant Claude
 
-L'onglet IA du calepin pose des questions à Claude sur la collection (« où est La Hulotte n°8 ? »,
+Le panneau Claude pose des questions à Claude sur la collection (« où est La Hulotte n°8 ? »,
 « quels livres de Robin Hobb ai-je ? »). Claude interroge la base avec des outils (`src/lib/library.ts`) et, si
 l'Édition est déverrouillée, peut aussi déplacer, ajouter ou supprimer un livre (la suppression demande une
 confirmation).
@@ -71,7 +70,7 @@ du crédit sur le compte de la clé utilisée.
 ## Structure
 
 ```
-src/app/            page unique et routes API (state, sync, edit, notes, ai)
+src/app/            page unique et routes API (state, sync, edit, ai, books)
 src/engine/         moteur three.js : CrateEngine, livres, caisses, gizmos
 src/components/     interface React (CratesApp, SidePanel, BookDetail, SearchBar, Notepad…)
 src/lib/            code serveur partagé : MongoDB, code d'Édition, outils de Claude

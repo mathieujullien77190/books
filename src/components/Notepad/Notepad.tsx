@@ -3,13 +3,11 @@
 import { useState } from 'react';
 
 import { AiTab } from './AiTab';
-import { NotesTab } from './NotesTab';
-import { TABS } from './constants';
-import type { NotepadProps, NotepadTab } from './types';
+import type { NotepadProps } from './types';
 
+/** Panneau « Claude » : conversation avec l'assistant de la bibliothèque. */
 export const Notepad = ({ className = '', defaultOpen = false, onChanged }: NotepadProps) => {
   const [open, setOpen] = useState(defaultOpen);
-  const [tab, setTab] = useState<NotepadTab>('notes');
 
   return (
     <section
@@ -22,35 +20,18 @@ export const Notepad = ({ className = '', defaultOpen = false, onChanged }: Note
           aria-expanded={open}
           onClick={() => setOpen((o) => !o)}
         >
-          📝 Calepin
+          ✨ Claude
         </button>
-        <div className="flex items-center gap-1">
-          {open &&
-            TABS.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                className={`cursor-pointer rounded-md border px-2 py-0.5 text-xs ${
-                  tab === t.id
-                    ? 'border-ink bg-ink text-white'
-                    : 'border-ink/10 bg-white text-ink hover:border-accent'
-                }`}
-                onClick={() => setTab(t.id)}
-              >
-                {t.label}
-              </button>
-            ))}
-          <button
-            type="button"
-            className="cursor-pointer border-0 bg-transparent px-1 text-xs text-muted"
-            aria-label={open ? 'Replier le calepin' : 'Déplier le calepin'}
-            onClick={() => setOpen((o) => !o)}
-          >
-            {open ? '▴' : '▾'}
-          </button>
-        </div>
+        <button
+          type="button"
+          className="cursor-pointer border-0 bg-transparent px-1 text-xs text-muted"
+          aria-label={open ? 'Replier Claude' : 'Déplier Claude'}
+          onClick={() => setOpen((o) => !o)}
+        >
+          {open ? '▴' : '▾'}
+        </button>
       </div>
-      {open && (tab === 'notes' ? <NotesTab /> : <AiTab onChanged={onChanged} />)}
+      {open && <AiTab onChanged={onChanged} />}
     </section>
   );
 };

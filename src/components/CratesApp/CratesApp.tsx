@@ -46,7 +46,7 @@ export const CratesApp = ({ className = '' }: CratesAppProps) => {
   }, [engine, locked, denied]);
   /** Téléphone : livre dont la fiche est affichée (par le bouton « Détail » sous le livre). */
   const [detailFor, setDetailFor] = useState<string | null>(null);
-  const [sheet, setSheet] = useState<'library' | 'notes' | null>(null);
+  const [sheet, setSheet] = useState<'library' | 'claude' | null>(null);
   // identité stable : une ref inline serait détachée/rattachée à chaque rendu et recréerait le moteur
   const mountCanvas = useCallback(
     (el: HTMLCanvasElement | null) => holder.mountCanvas(el),
@@ -155,11 +155,11 @@ export const CratesApp = ({ className = '' }: CratesAppProps) => {
               📚 Biblio
             </Button>
             <Button
-              variant={sheet === 'notes' ? 'active' : 'default'}
+              variant={sheet === 'claude' ? 'active' : 'default'}
               className="h-11 rounded-2xl px-4 text-base shadow-[0_10px_30px_rgba(31,42,55,0.14)]"
-              onClick={() => setSheet((s) => (s === 'notes' ? null : 'notes'))}
+              onClick={() => setSheet((s) => (s === 'claude' ? null : 'claude'))}
             >
-              📝 Calepin
+              ✨ Claude
             </Button>
           </div>
         </>

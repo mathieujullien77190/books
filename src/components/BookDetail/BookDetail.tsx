@@ -1,8 +1,10 @@
 import Button from '@/components/ui/Button';
 import { BOOK_KINDS, BOOK_TITLE_MAX } from '@/constants';
 
-import { FIELD, LABEL, metaText } from './constants';
+import { FIELD, ISBN_CONFIDENCES, LABEL, metaText } from './constants';
 import { fileToCoverDataUrl, seriesOf } from './helpers';
+import type { IsbnConfidence } from '@/types';
+
 import type { BookDetailProps } from './types';
 
 export const BookDetail = ({
@@ -103,18 +105,35 @@ export const BookDetail = ({
         </div>
         <div>
           <label htmlFor="detailIsbn" className={LABEL}>
-            ISBN
+            ISBN :
           </label>
-          <input
-            id="detailIsbn"
-            readOnly={readOnly}
-            type="text"
-            inputMode="numeric"
-            className={FIELD}
-            autoComplete="off"
-            value={book?.isbn ?? ''}
-            onChange={(e) => onChange({ isbn: e.target.value })}
-          />
+          <div className="flex gap-1.5">
+            <input
+              id="detailIsbn"
+              readOnly={readOnly}
+              type="text"
+              inputMode="numeric"
+              className={FIELD}
+              autoComplete="off"
+              value={book?.isbn ?? ''}
+              onChange={(e) => onChange({ isbn: e.target.value, isbnConfidence: 'verifie' })}
+            />
+            <select
+              aria-label="Confiance dans l'ISBN"
+              disabled={readOnly || !book?.isbn}
+              className={`${FIELD} w-28 shrink-0`}
+              value={book?.isbnConfidence ?? 'moyenne'}
+              onChange={(e) =>
+                onChange({ isbn: book?.isbn, isbnConfidence: e.target.value as IsbnConfidence })
+              }
+            >
+              {ISBN_CONFIDENCES.map(({ value, label }) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
       <label htmlFor="detailKind" className={LABEL}>

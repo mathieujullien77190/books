@@ -69,7 +69,16 @@ type DragBook = {
 export type BookPatch = Partial<
   Pick<
     Book,
-    'title' | 'summary' | 'color' | 'cover' | 'author' | 'publisher' | 'year' | 'kind' | 'isbn'
+    | 'title'
+    | 'summary'
+    | 'color'
+    | 'cover'
+    | 'author'
+    | 'publisher'
+    | 'year'
+    | 'kind'
+    | 'isbn'
+    | 'isbnConfidence'
   >
 >;
 
@@ -666,12 +675,14 @@ export class CrateEngine {
       b.year = patch.year && Number.isFinite(patch.year) ? patch.year : undefined;
     if ('kind' in patch) b.kind = patch.kind;
     if ('isbn' in patch) b.isbn = patch.isbn?.trim() || undefined;
+    if ('isbnConfidence' in patch) b.isbnConfidence = b.isbn ? patch.isbnConfidence : undefined;
     const meta =
       'author' in patch ||
       'publisher' in patch ||
       'year' in patch ||
       'kind' in patch ||
-      'isbn' in patch;
+      'isbn' in patch ||
+      'isbnConfidence' in patch;
     if (
       patch.title !== undefined ||
       patch.color !== undefined ||

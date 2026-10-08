@@ -25,6 +25,8 @@ export type Crate = {
   overhang?: boolean;
 };
 
+export type IsbnConfidence = 'verifie' | 'bonne' | 'moyenne';
+
 export type BookKind = 'roman' | 'bd' | 'documentaire' | 'guide' | 'dictionnaire' | 'autre';
 
 export type Book = {
@@ -46,6 +48,8 @@ export type Book = {
   kind?: BookKind;
   /** ISBN tel qu'imprimé au dos (avec ou sans tirets). */
   isbn?: string;
+  /** Fiabilité de l'ISBN : lu sur le livre (verifie), édition très probable (bonne) ou incertaine (moyenne). */
+  isbnConfidence?: IsbnConfidence;
   /** Couleur du titre sur la tranche (sinon noir ou blanc selon le fond). */
   spineColor?: string;
 };

@@ -3,7 +3,16 @@ import type { Book, Id } from '@/types';
 export type BookPatch = Partial<
   Pick<
     Book,
-    'title' | 'summary' | 'color' | 'cover' | 'author' | 'publisher' | 'year' | 'kind' | 'isbn'
+    | 'title'
+    | 'summary'
+    | 'color'
+    | 'cover'
+    | 'author'
+    | 'publisher'
+    | 'year'
+    | 'kind'
+    | 'isbn'
+    | 'isbnConfidence'
   >
 >;
 

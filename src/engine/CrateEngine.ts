@@ -95,6 +95,8 @@ const stackJitter = (id: string): { dr: number; df: number; yaw: number } => {
 /** Caisse sur laquelle se perche la mésange, et retrait de son centre par rapport aux bords du dessus. */
 const MESANGE_PERCH = 'P5';
 const MESANGE_MARGIN = 0.4;
+/** Elle s'enfonce un peu dans le dessus de la caisse pour que ses pattes touchent le bois. */
+const MESANGE_SINK = 0.08;
 
 /** Apparition des livres au chargement : nombre de livres par vague et délai entre deux vagues. */
 const REVEAL_BATCH = 12;
@@ -449,7 +451,7 @@ export class CrateEngine {
     const { fx, fy, fz } = extents(perch, 0);
     this.mesange.group.position.set(
       perch.x + fx / 2 - MESANGE_MARGIN,
-      perch.y + fy,
+      perch.y + fy - MESANGE_SINK,
       perch.z + fz / 2 - MESANGE_MARGIN,
     );
   }

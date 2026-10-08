@@ -22,10 +22,6 @@ export const BackgroundLayout = ({ engine, snap, labels, openBook, lock }: Layou
           mésange charbonnière
         </span>
       </div>
-      <p className="pointer-events-none fixed bottom-3 left-4 z-10 m-0 font-mono text-[11px] tracking-widest text-ink/45 uppercase select-none">
-        <span className="mr-2 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-accent align-middle" />
-        ceci est ma vraie bibliothèque · ne foutez pas le dawa
-      </p>
       <div className="pointer-events-none fixed top-[88px] right-4 bottom-[76px] z-10 flex w-[min(340px,calc(100vw-32px))] flex-col gap-3">
         <BookPanel
           engine={engine}

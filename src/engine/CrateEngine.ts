@@ -20,6 +20,7 @@ import {
   disposeBookRig,
   ensureCover,
   makeBookRig,
+  setLiteBooks,
   setBookResolution,
   updateBookTextures,
   type BookRig,
@@ -146,9 +147,13 @@ export class CrateEngine {
     private readonly transparent = false,
   ) {
     this.canvas = canvas;
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: transparent });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.shadowMap.enabled = true;
+    // mode léger : téléphone (ou `?lite=1`, `?lite=0` pour le forcer) → pavés unis, sans ombres ni antialiasing
+    const liteParam = new URLSearchParams(window.location.search).get('lite');
+    const lite = liteParam ? liteParam === '1' : window.matchMedia('(max-width: 767px)').matches;
+    setLiteBooks(lite);
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: !lite, alpha: transparent });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, lite ? 1.5 : 2));
+    renderer.shadowMap.enabled = !lite;
     renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.0;
@@ -565,7 +570,7 @@ export class CrateEngine {
       const rig = id && this.bookRigs.get(id);
       if (!rig || this.isPortrait()) continue;
       const nb = this.books.find((k) => k.id === id);
-      if (nb) ensureCover(rig, nb, this.aniso);
+      if (nb) ensureCover(rig, nb, this.aniso, true);
       rig.mesh.layers.set(1);
       rig.mesh.castShadow = false;
     }

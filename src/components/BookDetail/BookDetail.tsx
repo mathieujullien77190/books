@@ -209,7 +209,7 @@ export const BookDetail = ({
                   className="cursor-default rounded-lg border border-dashed border-ink/25 px-1.5 py-0.5 text-xs text-muted"
                   title={`${series.name} ${it.label} : manquant`}
                 >
-                  {it.label} · manquant
+                  {it.label}
                 </span>
               ) : (
                 <Button

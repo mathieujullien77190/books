@@ -37,12 +37,15 @@ export class Decor {
   }
 
   /** La mésange est perchée sur le coin avant droit de la caisse `MESANGE_PERCH` et la suit si on la déplace. */
-  place(crates: Crate[], ctx: { selectedId: Id | null; mode: Mode; openId: Id | null }): void {
+  place(
+    crates: Crate[],
+    ctx: { selectedId: Id | null; mode: Mode; openId: Id | null; lite?: boolean },
+  ): void {
     const bird = this.bird;
     if (!bird) return;
     const labels = crateLabels(crates);
     const perch = crates.find((c) => labels.get(c.id) === MESANGE_PERCH);
-    bird.group.visible = !!perch;
+    bird.group.visible = !!perch && !ctx.lite; // pas de mésange en mode léger
     this.gizmo.group.visible = false;
     if (!perch) return;
     // coin avant droit du dessus (le plus proche de l'observateur : la vue est de face, vers +Z)
@@ -84,7 +87,7 @@ export class Decor {
 
   /** Animation, à appeler à chaque image. */
   update(dt: number, t: number): void {
-    this.bird?.update(dt, t);
+    if (this.bird?.group.visible) this.bird.update(dt, t);
   }
 
   /** Retire la mésange de la scène et libère ses ressources. */

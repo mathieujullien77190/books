@@ -20,13 +20,15 @@ import {
   disposeBookRig,
   ensureCover,
   makeBookRig,
+  applyLiteMode,
   onTextureReady,
+  setLiteBooks,
   setBookResolution,
   updateBookTextures,
   type BookRig,
 } from './books';
 import { applyGravity, crateBounds, nextStepPosition, type Bounds } from './cratePlacement';
-import { NEIGHBOR_SCALE, OPEN_BOOK_SCALE } from './constants';
+import { LITE_KEY, NEIGHBOR_SCALE, OPEN_BOOK_SCALE } from './constants';
 import { buildCrate, forgetCrateLabel, setCrateLabel, uprightLabel, type CrateRig } from './crate';
 import { Decor } from './decor';
 import { History } from './history';
@@ -101,6 +103,8 @@ export class CrateEngine {
   /** Vrai jusqu'à la fin du premier chargement : l'interface affiche un indicateur. */
   private loading = true;
   private loadError = false;
+  private lite = false;
+  private sun!: THREE.DirectionalLight;
   private readonly persistence = new Persistence({
     isDisposed: () => this.disposed,
     getState: () => ({ crates: this.crates, books: this.books, decor: this.decor.state }),
@@ -169,6 +173,12 @@ export class CrateEngine {
     private readonly transparent = false,
   ) {
     this.canvas = canvas;
+    try {
+      this.lite = localStorage.getItem(LITE_KEY) === '1';
+    } catch {
+      this.lite = false;
+    }
+    setLiteBooks(this.lite);
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: transparent });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
@@ -212,7 +222,8 @@ export class CrateEngine {
     const sun = new THREE.DirectionalLight(0xfff1dc, 2.4);
     sun.layers.enable(1);
     sun.position.set(10, 16, 8);
-    sun.castShadow = true;
+    sun.castShadow = !this.lite;
+    this.sun = sun;
     sun.shadow.mapSize.set(2048, 2048);
     sun.shadow.camera.left = -18;
     sun.shadow.camera.right = 18;
@@ -316,6 +327,7 @@ export class CrateEngine {
       messy: false,
       loading: this.loading,
       loadError: this.loadError,
+      lite: this.lite,
       selectedId: this.selectedId,
       openId: this.openId,
       openSide: this.openBack ? 'back' : 'front',
@@ -334,6 +346,32 @@ export class CrateEngine {
     this.touch();
     this.snapshot = this.makeSnapshot();
     for (const l of this.listeners) l();
+  }
+
+  /**
+   * Mode léger : livres rangés en pavés d'une couleur, pas de mésange ni d'ombres (pour les téléphones qui
+   * rament). Le choix est gardé sur l'appareil.
+   */
+  setLite(on: boolean): void {
+    if (this.lite === on) return;
+    this.lite = on;
+    setLiteBooks(on);
+    try {
+      localStorage.setItem(LITE_KEY, on ? '1' : '0');
+    } catch {
+      // stockage indisponible : le choix vaut pour cette visite seulement
+    }
+    this.sun.castShadow = !on;
+    for (const [id, rig] of this.bookRigs) {
+      const b = this.books.find((x) => x.id === id);
+      if (b) applyLiteMode(rig, b, this.aniso);
+    }
+    this.missing.invalidate();
+    this.syncGhosts();
+    this.refresh();
+    const open = this.openId ? this.books.find((b) => b.id === this.openId) : undefined;
+    const openRig = open && this.bookRigs.get(open.id);
+    if (open && openRig) setBookResolution(openRig, open, this.aniso, OPEN_BOOK_SCALE);
   }
 
   /** Chargement terminé (ou impossible) : l'interface retire l'indicateur. */
@@ -390,6 +428,7 @@ export class CrateEngine {
       selectedId: this.selectedId,
       mode: this.mode,
       openId: this.openId,
+      lite: this.lite,
     });
   }
 
@@ -613,7 +652,7 @@ export class CrateEngine {
       const rig = id && this.bookRigs.get(id);
       if (!rig || this.isPortrait()) continue;
       const nb = this.books.find((k) => k.id === id);
-      if (nb) ensureCover(rig, nb, this.aniso);
+      if (nb) ensureCover(rig, nb, this.aniso, true);
       rig.mesh.layers.set(1);
       rig.mesh.castShadow = false;
     }

@@ -48,6 +48,11 @@ export class MissingPile {
   }
 
   /** Reconstruit le tas des tomes manquants quand la liste (ou la position des caisses) change. */
+  /** Oublie le dernier tas construit : le prochain `sync` le refait (changement de mode d'affichage). */
+  invalidate(): void {
+    this.key = '';
+  }
+
   sync(books: Book[], bb: Bounds): void {
     // les plus grands livres en bas du tas, les plus petits en haut (puis par série et numéro)
     const missing = missingVolumes(books).sort(

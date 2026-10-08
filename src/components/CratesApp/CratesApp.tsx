@@ -72,6 +72,16 @@ export const CratesApp = ({ className = '' }: CratesAppProps) => {
       ) : (
         <DesktopLayout {...layout} />
       )}
+      {!bg && phone && (
+        <IconButton
+          className={`fixed right-[68px] bottom-4 z-10 h-11 w-11 bg-white/90 text-xl backdrop-blur-md ${FLOAT_SHADOW} ${snap.lite ? 'border-ink' : ''}`}
+          label="Mode léger : livres en pavés de couleur"
+          aria-pressed={snap.lite}
+          onClick={() => engine?.setLite(!snap.lite)}
+        >
+          🧱
+        </IconButton>
+      )}
       {!bg && (
         <IconButton
           className={`fixed right-4 bottom-4 z-10 h-11 w-11 bg-white/90 text-xl backdrop-blur-md ${FLOAT_SHADOW}`}

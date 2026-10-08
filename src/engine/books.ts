@@ -23,6 +23,38 @@ export type BookRig = {
   faces: { cover: boolean; back: boolean };
 };
 
+/**
+ * Mode léger (choisi sur téléphone) : les livres rangés sont des pavés d'une seule couleur, sans texture
+ * dessinée (des centaines de canvas de dos et de couvertures font ramer un mobile). Le livre sorti garde
+ * ses faces.
+ */
+let lite = false;
+export const setLiteBooks = (on: boolean): void => {
+  lite = on;
+};
+
+/** Applique le mode courant (léger ou complet) à un livre déjà construit : dos et faces refaits ou effacés. */
+export const applyLiteMode = (rig: BookRig, b: Book, aniso: number): void => {
+  const [front, back, , , spine] = rig.mesh.material;
+  for (const m of [front!, back!]) {
+    m.map?.dispose();
+    m.map = null;
+    m.color.set(b.color);
+    m.needsUpdate = true;
+  }
+  rig.faces = { cover: false, back: false };
+  spine!.map?.dispose();
+  if (lite) {
+    spine!.map = null;
+    spine!.color.set(b.color);
+  } else {
+    spine!.color.set(0xffffff);
+    spine!.map = spineTexture(b.title, b.color, aniso, b.t, b.h, b.spineColor);
+    applySpineTurn(rig);
+  }
+  spine!.needsUpdate = true;
+};
+
 const applySpineTurn = (rig: BookRig): void => {
   const map = rig.mesh.material[4]?.map;
   if (!map) return;
@@ -339,7 +371,9 @@ export const makeBookRig = (b: Book, aniso: number): BookRig => {
   const back = bookMat({ color: b.color });
   const edgeColor = bookMat({ color: edge });
   const pages = bookMat({ color: 0xf3ead6, roughness: 1, envMapIntensity: 0.3 });
-  const spine = bookMat({ map: spineTexture(b.title, b.color, aniso, b.t, b.h, b.spineColor) });
+  const spine = lite
+    ? bookMat({ color: b.color })
+    : bookMat({ map: spineTexture(b.title, b.color, aniso, b.t, b.h, b.spineColor) });
   const mesh: BookMesh = new THREE.Mesh(new THREE.BoxGeometry(b.t, b.h, b.d), [
     front,
     back,
@@ -363,9 +397,9 @@ export const makeBookRig = (b: Book, aniso: number): BookRig => {
   };
 };
 
-/** Dessine la couverture si elle ne l'est pas encore (livre couché, voisin du livre sorti…). */
-export const ensureCover = (rig: BookRig, b: Book, aniso: number): void => {
-  if (rig.faces.cover) return;
+/** Dessine la couverture si elle ne l'est pas encore (livre couché, voisin du livre sorti…). En mode léger, seulement si `force`. */
+export const ensureCover = (rig: BookRig, b: Book, aniso: number, force = false): void => {
+  if (rig.faces.cover || (lite && !force)) return;
   const front = rig.mesh.material[0]!;
   rig.faces.cover = true;
   front.color.set(0xffffff);
@@ -386,8 +420,11 @@ export const updateBookTextures = (rig: BookRig, b: Book, aniso: number): void =
     back!.map = backCoverTexture(b.title, b.color, aniso, b.summary, b.author, b.publisher, b.year);
   } else back!.color.set(b.color);
   back!.needsUpdate = true;
-  spine!.map?.dispose();
-  spine!.map = spineTexture(b.title, b.color, aniso, b.t, b.h, b.spineColor);
+  if (lite) spine!.color.set(b.color);
+  else {
+    spine!.map?.dispose();
+    spine!.map = spineTexture(b.title, b.color, aniso, b.t, b.h, b.spineColor);
+  }
   spine!.needsUpdate = true;
   applySpineTurn(rig);
   edgeColor!.color.set(b.color).multiplyScalar(0.92);
@@ -397,6 +434,17 @@ export const updateBookTextures = (rig: BookRig, b: Book, aniso: number): void =
  * l'écran et dont le texte doit rester net, ×1 une fois rangé (200 livres en mémoire graphique). */
 export const setBookResolution = (rig: BookRig, b: Book, aniso: number, scale: number): void => {
   const [front, back] = rig.mesh.material;
+  if (lite && scale <= 1) {
+    // rangé : retour au pavé uni
+    for (const m of [front!, back!]) {
+      m.map?.dispose();
+      m.map = null;
+      m.color.set(b.color);
+      m.needsUpdate = true;
+    }
+    rig.faces = { cover: false, back: false };
+    return;
+  }
   rig.faces = { cover: true, back: true };
   front!.color.set(0xffffff);
   back!.color.set(0xffffff);

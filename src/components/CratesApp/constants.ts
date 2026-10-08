@@ -7,6 +7,7 @@ export const EMPTY_SNAPSHOT: Snapshot = {
   messy: false,
   loading: true,
   loadError: false,
+  lite: false,
   selectedId: null,
   openId: null,
   openSide: 'front',

@@ -168,10 +168,10 @@ export class CrateEngine {
     controls.minDistance = 1;
     controls.maxDistance = 60;
     controls.zoomToCursor = true; // la molette zoome vers le point sous le curseur, pas vers le centre de la vue
-    // toujours face à la bibliothèque : pas de rotation, seulement déplacer la vue (clic droit ou molette
-    // enfoncée, un doigt) et zoomer (molette, pincement). Clic gauche réservé aux caisses et aux livres.
-    controls.enableRotate = false;
-    controls.mouseButtons = { LEFT: null, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.PAN };
+    // souris : molette enfoncée = tourner autour de la bibliothèque, clic droit = déplacer la vue, molette =
+    // zoomer ; le clic gauche reste réservé aux caisses et aux livres. Tactile : un doigt déplace, deux
+    // doigts zooment (pas de rotation).
+    controls.mouseButtons = { LEFT: null, MIDDLE: THREE.MOUSE.ROTATE, RIGHT: THREE.MOUSE.PAN };
     controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_PAN };
     this.controls = controls;
 

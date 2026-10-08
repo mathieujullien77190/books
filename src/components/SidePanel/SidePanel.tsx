@@ -22,6 +22,7 @@ export const SidePanel = ({
   defaultOpen = false,
   editLocked = false,
   onUnlockEdit,
+  onLockEdit,
   snapshot,
   onAddCrate,
   onCrateSize,
@@ -76,35 +77,39 @@ export const SidePanel = ({
                 {m.label}
               </Button>
             ))}
-            {editLocked && (
-              <form
-                className="flex min-w-0 flex-1 items-center gap-1.5"
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  const ok = await onUnlockEdit?.(code);
-                  setWrongCode(!ok);
-                  setCode('');
+            <form
+              className="flex min-w-0 flex-1 items-center gap-1.5"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!editLocked) return onLockEdit?.();
+                const ok = await onUnlockEdit?.(code);
+                setWrongCode(!ok);
+                setCode('');
+              }}
+            >
+              <TextInput
+                id="editCode"
+                name="editCode"
+                type="password"
+                placeholder={editLocked ? '🔑 Code' : '🔓 Édition déverrouillée'}
+                aria-label="Code d'Édition"
+                className="h-9 min-w-0 flex-1 py-0"
+                autoComplete="off"
+                disabled={!editLocked}
+                value={code}
+                onChange={(e) => {
+                  setCode(e.target.value);
+                  setWrongCode(false);
                 }}
+              />
+              <Button
+                type="submit"
+                className="h-9"
+                title={editLocked ? 'Déverrouiller l’Édition' : 'Reverrouiller l’Édition'}
               >
-                <TextInput
-                  id="editCode"
-                  name="editCode"
-                  type="password"
-                  placeholder="🔑 Code"
-                  aria-label="Code d'Édition"
-                  className="h-9 min-w-0 flex-1 py-0"
-                  autoComplete="off"
-                  value={code}
-                  onChange={(e) => {
-                    setCode(e.target.value);
-                    setWrongCode(false);
-                  }}
-                />
-                <Button type="submit" className="h-9">
-                  OK
-                </Button>
-              </form>
-            )}
+                {editLocked ? 'OK' : '🔒'}
+              </Button>
+            </form>
           </div>
           {editLocked && wrongCode && (
             <p role="alert" className="m-0 mt-1 text-xs text-[#c0392b]">

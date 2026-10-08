@@ -4,6 +4,8 @@ import type { CrateEngine } from '@/engine/CrateEngine';
 import type { Mode } from '@/types';
 
 import { DENIED_MESSAGES, DENIED_TOAST_MS } from './constants';
+import { EDIT_TOKEN_KEY, writeStorage } from '@/components/shared';
+
 import { checkEditToken, unlockEdit } from './helpers';
 import type { EditLock } from './types';
 
@@ -48,5 +50,11 @@ export const useEditLock = (
     return ok;
   }, []);
 
-  return { lock: { locked, unlock, denied }, toast };
+  /** Reverrouille l'Édition sur cet appareil : le jeton est oublié, il faudra ressaisir le code. */
+  const relock = useCallback((): void => {
+    writeStorage(EDIT_TOKEN_KEY, null);
+    setUnlocked(false);
+  }, []);
+
+  return { lock: { locked, unlock, relock, denied }, toast };
 };

@@ -13,6 +13,7 @@ export const LibraryPanel = ({ engine, snap, lock, defaultOpen }: LibraryPanelPr
     defaultOpen={defaultOpen}
     editLocked={lock.locked}
     onUnlockEdit={lock.unlock}
+    onLockEdit={lock.relock}
     snapshot={snap}
     onAddCrate={(size) => engine?.addCrate(size)}
     onCrateSize={(id, size) => engine?.setCrateSize(id, size)}

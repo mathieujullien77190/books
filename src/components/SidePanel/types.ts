@@ -5,6 +5,8 @@ export type SidePanelProps = {
   editLocked?: boolean;
   /** Envoie le code au serveur ; vrai s'il est accepté. */
   onUnlockEdit?: (code: string) => Promise<boolean>;
+  /** Reverrouille l'Édition (oublie le jeton de cet appareil). */
+  onLockEdit?: () => void;
   /** Ouvert dès l'affichage (feuille du téléphone) ; replié par défaut. */
   defaultOpen?: boolean;
   snapshot: Snapshot;

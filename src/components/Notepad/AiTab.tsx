@@ -63,6 +63,8 @@ export const AiTab = ({
   });
   /** Champ de la clé replié derrière le bouton 🔑 ; ouvert d'office tant qu'il n'y a pas de clé. */
   const [showKey, setShowKey] = useState(() => !key);
+  /** Explication « pourquoi une clé ? » : repliée derrière le bouton « ? ». */
+  const [showHelp, setShowHelp] = useState(false);
   const { question, setQuestion, turns, busy, error, setError, send, reset } = useAiChat({
     apiKey: key,
     model,
@@ -129,13 +131,24 @@ export const AiTab = ({
             </option>
           ))}
         </Select>
+        <IconButton
+          className={`h-8 w-8 shrink-0 rounded-lg bg-white text-sm font-semibold ${showHelp ? 'border-ink' : ''}`}
+          label="Pourquoi une clé API ?"
+          aria-expanded={showHelp}
+          onClick={() => setShowHelp((v) => !v)}
+        >
+          ?
+        </IconButton>
       </div>
-      <p className="m-0 mb-2 rounded-lg bg-ink/5 px-2.5 py-2 text-xs leading-relaxed text-ink">
-        Cette fonction utilise l’API d’Anthropic, qui est <strong>payante</strong> : chaque question
-        consomme du crédit. Pour la tester, colle ta propre clé (bouton 🔑) : elle reste dans ton
-        navigateur et ne sert qu’à tes questions. Par prudence, crée une clé dédiée sur
-        console.anthropic.com avec une limite de dépense basse, et supprime-la juste après l’essai.
-      </p>
+      {showHelp && (
+        <p className="m-0 mb-2 rounded-lg bg-ink/5 px-2.5 py-2 text-xs leading-relaxed text-ink">
+          Cette fonction utilise l’API d’Anthropic, qui est <strong>payante</strong> : chaque
+          question consomme du crédit. Pour la tester, colle ta propre clé (bouton 🔑) : elle reste
+          dans ton navigateur et ne sert qu’à tes questions. Par prudence, crée une clé dédiée sur
+          console.anthropic.com avec une limite de dépense basse, et supprime-la juste après
+          l’essai.
+        </p>
+      )}
       {/* zone toujours présente (vide au départ) pour que les lecteurs d'écran lisent les messages qui arrivent */}
       <div
         role="log"

@@ -21,6 +21,8 @@ export type EditLock = {
   locked: boolean;
   /** Envoie le code au serveur ; vrai s'il est accepté (l'Édition est alors déverrouillée). */
   unlock: (code: string) => Promise<boolean>;
+  /** Reverrouille l'Édition sur cet appareil (le jeton est oublié). */
+  relock: () => void;
   /** Tentative de modification refusée : affiche le message du Super Matou. */
   denied: () => void;
 };

@@ -18,7 +18,6 @@ export const BackgroundLayout = ({ engine, snap, labels, openBook, lock }: Layou
         className="pointer-events-none fixed top-0 left-0 z-10 opacity-0 transition-opacity"
       >
         <span className="absolute bottom-1 left-1 flex w-max items-center gap-1.5 font-mono text-[11px] font-bold tracking-widest text-ink uppercase select-none">
-          <span className="text-base leading-none">↙</span>
           mésange charbonnière
         </span>
       </div>

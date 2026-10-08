@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 import { PAD, SIZES } from '@/constants';
-import { crateDims, crateLabels, uid } from '@/helpers';
+import { uid } from '@/helpers';
 import type {
   Book,
   Crate,
@@ -14,6 +14,7 @@ import type {
   Snapshot,
 } from '@/types';
 
+import { applyBookPatch, type BookPatch } from './bookPatch';
 import {
   disposeBookRig,
   ensureCover,
@@ -22,26 +23,22 @@ import {
   updateBookTextures,
   type BookRig,
 } from './books';
-import { applyGravity, crateBounds, nextStepPosition, type Bounds } from './cratePlacement';
 import { OPEN_BOOK_SCALE } from './constants';
-import { applyBookPatch, type BookPatch } from './bookPatch';
-import { buildCrate, forgetCrateLabel, setCrateLabel, uprightLabel, type CrateRig } from './crate';
-import { DisplayMode } from './displayMode';
+import { CrateRigs } from './crateRigs';
+import { crateBounds, nextStepPosition, type Bounds } from './cratePlacement';
 import { Decor } from './decor';
+import { DisplayMode } from './displayMode';
 import { History } from './history';
 import { PointerInput } from './input';
 import { layoutBooks } from './layout';
 import { disposeGroup } from './materials';
 import { loadMesange } from './mesange';
-import { MissingPile } from './missingPile';
-import { buildMoveGizmo, type MoveGizmo } from './moveGizmo';
-import { Q_TRANCHE, extents, footprint, overlaps, quatOf, rotatedQuat } from './orientation';
-import { Persistence } from './persistence';
-import { buildRotateGizmo, type RotateGizmo } from './rotateGizmo';
 import { RenderLoop } from './loop';
+import { MissingPile } from './missingPile';
+import { Q_TRANCHE, rotatedQuat } from './orientation';
+import { Persistence } from './persistence';
 import { Stage } from './stage';
 import { Showcase, focusCrateView, recenterView } from './view';
-import { buildGrid, buildWorldAxes, type WorldAxes } from './worldAxes';
 
 export type { BookPatch };
 
@@ -56,8 +53,7 @@ export class CrateEngine {
   private readonly stage: Stage;
   private readonly loop: RenderLoop;
 
-  private readonly crateRigs = new Map<Id, CrateRig>();
-  private readonly hitboxes: THREE.Mesh[] = [];
+  private readonly crateRigs: CrateRigs;
   private readonly booksGroup = new THREE.Group();
   /** Tas des tomes manquants, à gauche des caisses. */
   private readonly missing: MissingPile;
@@ -68,8 +64,6 @@ export class CrateEngine {
   private selectedId: Id | null = null;
   /** Résultats d'une recherche présentés l'un après l'autre (précédent / suivant) ; null : voisins de la caisse. */
   private resultIds: Id[] | null = null;
-  /** Caisse mise en surbrillance quand on survole sa place dans la fiche du livre sorti. */
-  private hintId: Id | null = null;
   private openId: Id | null = null;
   /** Face visible du livre sorti : false = couverture, true = dos (résumé). */
   private openBack = false;
@@ -104,13 +98,9 @@ export class CrateEngine {
 
   /** Souris, doigts et clavier (gestes en cours, survol, infobulle). */
   private readonly input: PointerInput;
-  private readonly rotGizmo: RotateGizmo;
-  private readonly moveGizmo: MoveGizmo;
   /** États précédents pour « Annuler » (le plus récent en dernier). */
   private readonly history = new History();
   private lastEdit: { id: Id; ts: number } | null = null;
-  private readonly axes: WorldAxes;
-  private readonly grid: THREE.GridHelper;
   private mode: Mode = 'view';
   private texTimer = 0;
   /** Premier rendu déjà fait derrière l'indicateur de chargement. */
@@ -133,13 +123,24 @@ export class CrateEngine {
     const stage = new Stage(canvas, transparent);
     this.stage = stage;
     this.missing = new MissingPile(stage.aniso);
+    stage.scene.add(this.booksGroup);
+    stage.scene.add(this.missing.group);
+    this.crateRigs = new CrateRigs(stage.scene, {
+      crates: () => this.crates,
+      selectedId: () => this.selectedId,
+      openId: () => this.openId,
+      mode: () => this.mode,
+      lite: () => this.display.lite,
+      bounds: () => this.bounds(),
+    });
+    stage.scene.add(this.decor.gizmo.group);
     this.display = new DisplayMode({
       isDisposed: () => this.disposed,
       transparent,
       aniso: stage.aniso,
       sun: stage.sun,
       missing: this.missing,
-      crateRigs: this.crateRigs,
+      crateRigs: this.crateRigs.rigs,
       bookRigs: this.bookRigs,
       books: () => this.books,
       openId: () => this.openId,
@@ -148,16 +149,6 @@ export class CrateEngine {
       refresh: () => this.refresh(),
       emit: () => this.emit(),
     });
-    stage.scene.add(this.booksGroup);
-    this.stage.scene.add(this.missing.group);
-    this.axes = buildWorldAxes();
-    this.grid = buildGrid();
-    this.grid.visible = this.mode === 'edit';
-    this.axes.group.visible = this.mode === 'edit';
-    this.stage.scene.add(this.grid, this.axes.group);
-    this.rotGizmo = buildRotateGizmo();
-    this.moveGizmo = buildMoveGizmo();
-    this.stage.scene.add(this.rotGizmo.group, this.moveGizmo.group, this.decor.gizmo.group);
 
     this.snapshot = this.makeSnapshot();
     stage.resize();
@@ -165,9 +156,9 @@ export class CrateEngine {
       canvas,
       camera: stage.camera,
       controls: stage.controls,
-      hitboxes: this.hitboxes,
-      rotGizmo: this.rotGizmo,
-      moveGizmo: this.moveGizmo,
+      hitboxes: this.crateRigs.hitboxes,
+      rotGizmo: this.crateRigs.rotGizmo,
+      moveGizmo: this.crateRigs.moveGizmo,
       decor: this.decor,
       missing: this.missing,
       mode: () => this.mode,
@@ -198,7 +189,7 @@ export class CrateEngine {
       refresh: () => this.refresh(),
       emit: () => this.emit(),
       relayout: () => {
-        this.placeCrates();
+        this.crateRigs.place();
         this.layoutBooks();
       },
     });
@@ -314,7 +305,7 @@ export class CrateEngine {
   private refresh(): void {
     this.dataDirty = true;
     this.updateNeighbors();
-    this.placeCrates();
+    this.crateRigs.place();
     this.layoutBooks();
     this.placeDecor();
     this.syncGhosts();
@@ -353,8 +344,8 @@ export class CrateEngine {
     this.closeBook(false);
     this.crates = s.crates;
     this.books = s.books;
-    for (const id of [...this.crateRigs.keys()])
-      if (!this.crates.some((c) => c.id === id)) this.removeCrateRig(id);
+    for (const id of [...this.crateRigs.rigs.keys()])
+      if (!this.crates.some((c) => c.id === id)) this.crateRigs.remove(id);
     for (const [id, rig] of [...this.bookRigs]) {
       if (this.books.some((b) => b.id === id)) continue;
       disposeBookRig(rig);
@@ -405,7 +396,7 @@ export class CrateEngine {
   removeCrate(id: Id): void {
     this.pushHistory();
     this.crates = this.crates.filter((c) => c.id !== id);
-    this.removeCrateRig(id);
+    this.crateRigs.remove(id);
     if (this.selectedId === id) this.selectedId = null;
     for (const b of this.books) if (b.crate === id) b.crate = null;
     this.refresh();
@@ -515,7 +506,7 @@ export class CrateEngine {
     const open = this.openId ? this.books.find((b) => b.id === this.openId) : undefined;
     let next: [Id | null, Id | null] = [null, null];
     if (open) {
-      const stored = (b: Book): boolean => !!b.crate && this.crateRigs.has(b.crate);
+      const stored = (b: Book): boolean => !!b.crate && this.crateRigs.rigs.has(b.crate);
       const list = this.resultIds?.includes(open.id)
         ? this.resultIds.flatMap((id) => this.books.find((b) => b.id === id) ?? [])
         : this.books.filter((b) => (stored(open) ? b.crate === open.crate : !stored(b)));
@@ -555,7 +546,7 @@ export class CrateEngine {
       if (book) setBookResolution(rig, book, this.stage.aniso, 1);
     }
     this.openId = null;
-    this.hintId = null;
+    this.crateRigs.hintId = null;
     if (doRefresh) this.resultIds = null;
     if (doRefresh) this.refresh();
   }
@@ -636,10 +627,7 @@ export class CrateEngine {
 
   /** Met une caisse en surbrillance (survol de sa place dans la fiche), ou l'éteint avec null. */
   hintCrate(id: Id | null): void {
-    if (this.hintId === id) return;
-    this.hintId = id;
-    for (const rig of this.crateRigs.values())
-      rig.outline.visible = rig.id === this.selectedId || rig.id === id;
+    this.crateRigs.hint(id);
   }
 
   /**
@@ -672,15 +660,14 @@ export class CrateEngine {
       this.selectedId = null;
       this.decor.selected = false;
     }
-    this.grid.visible = mode === 'edit';
-    this.axes.group.visible = mode === 'edit';
+    this.crateRigs.setEditing(mode === 'edit');
     this.refresh();
   }
 
   /** Cadre la caméra sur une caisse, en gardant la direction de vue. */
   focusCrate(id: Id): void {
     const c = this.crate(id);
-    const rig = c && this.crateRigs.get(id);
+    const rig = c && this.crateRigs.rigs.get(id);
     if (!c || !rig) return;
     focusCrateView(this.stage.camera, this.stage.controls.target, c, rig);
   }
@@ -706,89 +693,18 @@ export class CrateEngine {
     this.loop.stop();
     window.clearTimeout(this.texTimer);
     this.input.detach();
-    for (const id of [...this.crateRigs.keys()]) this.removeCrateRig(id);
     for (const rig of this.bookRigs.values()) disposeBookRig(rig);
     this.bookRigs.clear();
-    disposeGroup(this.rotGizmo.group);
-    disposeGroup(this.moveGizmo.group);
+    this.crateRigs.dispose();
     this.missing.dispose();
     disposeGroup(this.decor.gizmo.group);
-    this.stage.scene.remove(this.rotGizmo.group, this.moveGizmo.group, this.decor.gizmo.group);
+    this.stage.scene.remove(this.decor.gizmo.group);
     this.stage.dispose();
   }
 
   // ---------- état ----------
   private crate(id: Id): Crate | undefined {
     return this.crates.find((c) => c.id === id);
-  }
-
-  private ensureCrateRig(c: Crate): CrateRig {
-    let rig = this.crateRigs.get(c.id);
-    const dims = crateDims(c);
-    const key = `${dims.w}|${dims.h}|${dims.d}`;
-    if (rig && (rig.size !== c.size || rig.dimsKey !== key)) {
-      this.removeCrateRig(c.id);
-      rig = undefined;
-    }
-    if (!rig) {
-      rig = buildCrate(c.id, c.size, dims);
-      rig.group.visible = !this.display.lite; // mode léger : les livres seuls, sans caisses
-      this.stage.scene.add(rig.group);
-      this.crateRigs.set(c.id, rig);
-      this.hitboxes.push(rig.hit);
-    }
-    return rig;
-  }
-
-  private removeCrateRig(id: Id): void {
-    const rig = this.crateRigs.get(id);
-    if (!rig) return;
-    forgetCrateLabel(rig);
-    disposeGroup(rig.group);
-    this.stage.scene.remove(rig.group);
-    this.crateRigs.delete(id);
-    const i = this.hitboxes.indexOf(rig.hit);
-    if (i >= 0) this.hitboxes.splice(i, 1);
-  }
-
-  /** Gravité : chaque caisse repose sur le sol ou sur la plus haute caisse posée avant elle qu'elle chevauche. */
-  private placeCrates(): void {
-    applyGravity(this.crates);
-    const labels = crateLabels(this.crates);
-    for (const c of this.crates) {
-      const fp = footprint(c);
-      const rig = this.ensureCrateRig(c);
-      setCrateLabel(rig, labels.get(c.id) ?? '');
-      rig.group.position.set(c.x, c.y + fp.fy / 2, c.z);
-      rig.group.quaternion.copy(quatOf(c));
-      uprightLabel(rig, rig.group.quaternion);
-      rig.outline.visible = c.id === this.selectedId || c.id === this.hintId;
-      rig.group.updateMatrixWorld(true);
-    }
-    // les axes du repère couvrent juste les caisses posées (marge 5 cm), lettre au bout positif
-    const bb = this.bounds();
-    this.axes.setExtent('x', Math.min(bb.minX, 0) - 0.5, Math.max(bb.maxX, 0) + 0.5);
-    this.axes.setExtent('z', Math.min(bb.minZ, 0) - 0.5, Math.max(bb.maxZ, 0) + 0.5);
-    this.axes.setExtent('y', 0, Math.max(bb.maxY, 1) + 0.5);
-    // flèches de rotation autour de la caisse sélectionnée (masquées pendant la lecture d'un livre)
-    const sel = this.selectedId ? this.crate(this.selectedId) : undefined;
-    const selRig = sel && this.crateRigs.get(sel.id);
-    this.rotGizmo.group.visible = !!selRig && !this.openId && this.mode === 'edit';
-    this.moveGizmo.group.visible = this.rotGizmo.group.visible;
-    if (sel && selRig) {
-      const { fx, fy, fz } = extents(sel);
-      this.rotGizmo.group.position.copy(selRig.group.position);
-      this.rotGizmo.fit(Math.hypot(fx, fy, fz) / 2 + 0.15);
-      this.moveGizmo.group.position.copy(selRig.group.position);
-      this.moveGizmo.fit(fx, fy, fz);
-      // monter seulement s'il y a une caisse au-dessus (elle redescend à sa place) ; jamais descendre :
-      // ça déplacerait les caisses du dessous, interdit
-      const fps = footprint(sel);
-      const above = this.crates.some(
-        (o) => o !== sel && o.y > sel.y && overlaps(fps, footprint(o)),
-      );
-      this.moveGizmo.setVertical(above, false);
-    }
   }
 
   /** Déplace la mésange d'un cran le long d'un axe du monde. */
@@ -818,7 +734,7 @@ export class CrateEngine {
     const { counts, stats } = layoutBooks({
       crates: this.crates,
       books: this.books,
-      crateRigs: this.crateRigs,
+      crateRigs: this.crateRigs.rigs,
       bounds: this.bounds(),
       aniso: this.stage.aniso,
       mode: this.mode,

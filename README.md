@@ -32,7 +32,7 @@ Variables d'environnement (`.env.local`, jamais versionné) :
 | ------------- | ---------------------------------------------------------------------------- |
 | `MONGODB_URI` | chaîne de connexion MongoDB (obligatoire : sans base, rien n'est sauvegardé) |
 | `MONGODB_DB`  | nom de la base (`bibliotheque` par défaut)                                   |
-| `EDIT_CODE`   | code qui déverrouille l'Édition (`supermatou` par défaut : à changer)        |
+| `EDIT_CODE`   | code qui déverrouille l'Édition (sans lui, l'Édition est désactivée)         |
 | `EDIT_SECRET` | clé de signature du jeton d'Édition (facultative)                            |
 
 Au premier lancement, la base est vide : l'appli crée des caisses de départ.

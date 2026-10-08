@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { clearFails, clientKey, isBlocked, recordFail } from '@/lib/attempts';
-import { EDIT_CODE, isEditToken, sameSecret, signEditToken } from '@/lib/edit';
+import { EDIT_CODE, editEnabled, isEditToken, sameSecret, signEditToken } from '@/lib/edit';
 
 /**
  * POST /api/edit — { code } : si le code est bon, renvoie un jeton que le client garde dans son
@@ -15,6 +15,8 @@ export const POST = async (request: Request): Promise<NextResponse> => {
     return NextResponse.json({ ok: false }, { status: 400 });
   }
   if (typeof body.code === 'string') {
+    // pas de EDIT_CODE dans l'environnement : Édition désactivée, aucun code n'est accepté
+    if (!editEnabled) return NextResponse.json({ ok: false, reason: 'disabled' }, { status: 503 });
     const key = clientKey(request);
     // trop d'essais ratés : plus aucun essai (même le bon code) pendant quelques minutes
     if (await isBlocked(key))

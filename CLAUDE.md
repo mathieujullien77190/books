@@ -16,10 +16,11 @@ npm run build
 npm run lint         # eslint ; lint:fix pour corriger
 npm run typecheck    # tsc --noEmit
 npm run format       # prettier (format:check pour vérifier)
-npm test             # vitest (src/**/*.test.ts) ; npm run check = typecheck + lint + test
+npm test             # vitest (src/**/*.test.ts) ; npm run test:cov = avec couverture (seuil 100 %)
+npm run check        # typecheck + lint + tests avec couverture
 ```
 
-Tests : seulement la logique pure (`helpers`, `cratePlacement`). Pour le reste, `typecheck` + `lint`, et regarder l'appli quand le changement est visuel (si ce n'est pas possible, le dire).
+Tests : couverture imposée à 100 % (lignes, fonctions, branches, instructions) sur `src/engine`, `src/lib`, `src/helpers`, `src/constants` et les routes API (`vitest.config.ts`). WebGL, canvas, polices et `OrbitControls` y sont simulés (`src/test/`) : les tests prouvent la logique, pas le rendu réel, qu'il faut regarder à l'écran. Les composants React ne sont pas testés.
 
 ## Architecture
 

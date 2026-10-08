@@ -44,8 +44,9 @@ npm run dev          # serveur de développement
 npm run build        # build de production
 npm run lint         # eslint
 npm run typecheck    # tsc --noEmit
-npm test             # vitest (logique pure : séries, caisses)
-npm run check        # typecheck + lint + tests
+npm test             # vitest
+npm run test:cov     # avec couverture (seuil 100 % sur le moteur, le code serveur, les helpers)
+npm run check        # typecheck + lint + tests avec couverture
 npm run format       # prettier
 ```
 

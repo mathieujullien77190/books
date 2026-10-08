@@ -113,7 +113,7 @@ export const BookDetail = ({
               readOnly={readOnly}
               type="text"
               inputMode="numeric"
-              className={FIELD}
+              className={`${FIELD} min-w-0 flex-1`}
               autoComplete="off"
               value={book?.isbn ?? ''}
               onChange={(e) => onChange({ isbn: e.target.value, isbnConfidence: 'verifie' })}
@@ -121,7 +121,7 @@ export const BookDetail = ({
             <select
               aria-label="Confiance dans l'ISBN"
               disabled={readOnly || !book?.isbn}
-              className={`${FIELD} w-28 shrink-0`}
+              className={`${FIELD} w-28! shrink-0`}
               value={book?.isbnConfidence ?? 'moyenne'}
               onChange={(e) =>
                 onChange({ isbn: book?.isbn, isbnConfidence: e.target.value as IsbnConfidence })

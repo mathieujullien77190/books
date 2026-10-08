@@ -28,21 +28,31 @@ export const fileToCoverDataUrl = (file: File): Promise<string> =>
     img.src = url;
   });
 
-export type SeriesItem = { id: string; label: string; num: number };
+/** Un tome de la série : possédé (id) ou manquant (sans id). */
+export type SeriesItem = { id: string | null; label: string; num: number };
 
 /** Tous les numéros possédés de la série du livre, triés ; null si le titre n'est pas une série. */
 export const seriesOf = (
   book: Book,
   allBooks: Book[],
-): { name: string; items: SeriesItem[] } | null => {
+): { name: string; items: SeriesItem[]; owned: number; total: number } | null => {
   const v = parseVolume(book.title);
   if (!v) return null;
   const key = v.prefix.toLowerCase();
   const items: SeriesItem[] = [];
+  const owned = new Set<number>();
+  let total = 0;
   for (const b of allBooks) {
     const bv = parseVolume(b.title);
-    if (bv && bv.prefix.toLowerCase() === key)
-      items.push({ id: b.id, label: volumeLabel(bv), num: bv.num });
+    if (!bv || bv.prefix.toLowerCase() !== key) continue;
+    items.push({ id: b.id, label: volumeLabel(bv), num: bv.num });
+    for (let n = bv.num; n <= bv.last; n++) owned.add(n);
+    total = Math.max(total, b.seriesTotal ?? 0, bv.last);
   }
-  return { name: v.prefix, items: items.sort((a, b) => a.num - b.num) };
+  // les tomes connus de la série mais absents de la bibliothèque sont listés comme manquants
+  // (pas pour les numéros de périodique comme La Hulotte, qui n'ont pas de fin)
+  if (v.mark === 'T')
+    for (let n = 1; n <= total; n++)
+      if (!owned.has(n)) items.push({ id: null, label: `${v.mark}${n}`, num: n });
+  return { name: v.prefix, items: items.sort((a, b) => a.num - b.num), owned: owned.size, total };
 };

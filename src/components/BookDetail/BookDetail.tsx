@@ -199,20 +199,30 @@ export const BookDetail = ({
       {series && (
         <>
           <div className={LABEL}>
-            Série · {series.name} ({series.items.length})
+            Série · {series.name} ({series.owned}/{series.total || series.owned})
           </div>
           <div className="flex flex-wrap gap-1">
-            {series.items.map((it) => (
-              <Button
-                key={it.id}
-                variant={it.id === book?.id ? 'active' : 'default'}
-                className="px-1.5 py-0.5 text-xs"
-                title={`Ouvrir ${series.name} ${it.label}`}
-                onClick={() => it.id !== book?.id && onOpen(it.id)}
-              >
-                {it.label}
-              </Button>
-            ))}
+            {series.items.map((it) =>
+              it.id === null ? (
+                <span
+                  key={`missing-${it.num}`}
+                  className="cursor-default rounded-lg border border-dashed border-ink/25 px-1.5 py-0.5 text-xs text-muted"
+                  title={`${series.name} ${it.label} : manquant`}
+                >
+                  {it.label} · manquant
+                </span>
+              ) : (
+                <Button
+                  key={it.id}
+                  variant={it.id === book?.id ? 'active' : 'default'}
+                  className="px-1.5 py-0.5 text-xs"
+                  title={`Ouvrir ${series.name} ${it.label}`}
+                  onClick={() => it.id !== book?.id && onOpen(it.id!)}
+                >
+                  {it.label}
+                </Button>
+              ),
+            )}
           </div>
         </>
       )}

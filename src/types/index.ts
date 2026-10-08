@@ -48,6 +48,8 @@ export type Book = {
   kind?: BookKind;
   /** ISBN tel qu'imprimé au dos (avec ou sans tirets). */
   isbn?: string;
+  /** Nombre total de tomes de la série du livre (permet d'afficher les tomes manquants). */
+  seriesTotal?: number;
   /** Fiabilité de l'ISBN : lu sur le livre (verifie), édition très probable (bonne) ou incertaine (moyenne). */
   isbnConfidence?: IsbnConfidence;
   /** Couleur du titre sur la tranche (sinon noir ou blanc selon le fond). */

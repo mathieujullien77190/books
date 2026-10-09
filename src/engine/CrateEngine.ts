@@ -2,6 +2,7 @@ import type { CrateSize, Dims, Id, Mode, RotAxis, SavedState } from '@/types';
 
 import { BookEditor, type BookPatch } from './bookPatch';
 import { BookRigs } from './bookRigs';
+import { buildStl } from './stlExport';
 import { CrateOps } from './crateOps';
 import { CrateRigs } from './crateRigs';
 import { Decor } from './decor';
@@ -287,6 +288,14 @@ export class CrateEngine {
       openId: this.opened.id,
       lite: this.display.lite,
     });
+  }
+
+  /** Fichier STL (binaire, en mm, Z vers le haut) des caisses et des livres tels qu'ils sont posés. */
+  exportStl(): ArrayBuffer {
+    return buildStl(
+      [...this.crateRigs.rigs.values()].map((r) => ({ group: r.group, shell: r.shell })),
+      [...this.bookRigs.rigs.values()].map((r) => r.mesh),
+    );
   }
 
   // ---------- historique ----------

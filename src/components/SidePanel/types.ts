@@ -22,4 +22,6 @@ export type SidePanelProps = {
   /** Clic sur une caisse de la liste : sélection (édition) ou cadrage (bibliothèque). */
   onPickCrate: (id: Id) => void;
   onUndo: () => void;
+  /** Enregistre la bibliothèque (caisses et livres) en fichier STL. */
+  onExportStl: () => void;
 };

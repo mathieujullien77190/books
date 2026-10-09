@@ -1,4 +1,4 @@
-import { useIsEmbed } from '@/components/shared';
+import { saveFile, useIsEmbed } from '@/components/shared';
 import SidePanel from '@/components/SidePanel';
 
 import type { LayoutProps } from './types';
@@ -30,6 +30,10 @@ export const LibraryPanel = ({ engine, snap, lock, defaultOpen }: LibraryPanelPr
         snap.mode === 'edit' ? engine?.selectCrate(id) : engine?.focusCrate(id)
       }
       onUndo={() => engine?.undo()}
+      onExportStl={() => {
+        const stl = engine?.exportStl();
+        if (stl) saveFile('bibliotheque.stl', stl, 'model/stl');
+      }}
     />
   );
 };

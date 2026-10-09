@@ -410,13 +410,6 @@ describe('livres', () => {
     expect(sent.find((k) => k.id === 'Alpha T1')).toMatchObject({ h: 2.9, t: 0.4 });
   });
 
-  it('exporte les caisses et les livres en STL binaire', () => {
-    const stl = engine.exportStl();
-    const triangles = new DataView(stl).getUint32(80, true);
-    expect(triangles).toBeGreaterThan(0);
-    expect(stl.byteLength).toBe(84 + triangles * 50);
-  });
-
   it('supprime un livre, y compris celui qui est sorti', () => {
     engine.openBook('libre');
     engine.removeBook('libre');

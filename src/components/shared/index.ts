@@ -6,6 +6,5 @@ export {
   readStorage,
   writeStorage,
 } from './storage';
-export { saveFile } from './download';
 export { useEmbedMode, useIsEmbed } from './useIsEmbed';
 export { useLocalStorageState } from './useLocalStorageState';

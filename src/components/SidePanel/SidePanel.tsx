@@ -34,7 +34,6 @@ export const SidePanel = ({
   onMode,
   onPickCrate,
   onUndo,
-  onExportStl,
 }: SidePanelProps) => {
   const [open, setOpen] = useState(defaultOpen);
   const [wrongCode, setWrongCode] = useState(false);
@@ -122,34 +121,26 @@ export const SidePanel = ({
           )}
 
           <H2>Caisses</H2>
-          <div className="mb-2 flex flex-wrap items-center gap-1.5">
-            {edit && (
-              <>
-                <span className="mr-0.5 text-xs text-muted">Ajouter</span>
-                {SIZE_KEYS.map((k) => (
-                  <Button key={k} onClick={() => onAddCrate(k)}>
-                    + {SIZES[k].label}
-                  </Button>
-                ))}
-                <Button onClick={() => onAddCrate('X')} title="Volume transparent aux cotes libres">
-                  + {SIZES.X.label}
+          {edit && (
+            <div className="mb-2 flex flex-wrap items-center gap-1.5">
+              <span className="mr-0.5 text-xs text-muted">Ajouter</span>
+              {SIZE_KEYS.map((k) => (
+                <Button key={k} onClick={() => onAddCrate(k)}>
+                  + {SIZES[k].label}
                 </Button>
-                <Button
-                  onClick={onUndo}
-                  disabled={!snapshot.canUndo}
-                  title="Annuler la dernière action (Ctrl+Z)"
-                >
-                  ↶ Annuler
-                </Button>
-              </>
-            )}
-            <Button
-              onClick={onExportStl}
-              title="Enregistrer les caisses et les livres en fichier STL (en mm, pour l'impression 3D ou la CAO)"
-            >
-              ⬇ STL
-            </Button>
-          </div>
+              ))}
+              <Button onClick={() => onAddCrate('X')} title="Volume transparent aux cotes libres">
+                + {SIZES.X.label}
+              </Button>
+              <Button
+                onClick={onUndo}
+                disabled={!snapshot.canUndo}
+                title="Annuler la dernière action (Ctrl+Z)"
+              >
+                ↶ Annuler
+              </Button>
+            </div>
+          )}
           <CrateList
             crates={snapshot.crates}
             labels={labels}

@@ -8,6 +8,7 @@ import {
   disposeBookRig,
   ensureCover,
   makeBookRig,
+  resizeBookRig,
   setBookResolution,
   setLiteBooks,
   setSpineFlat,
@@ -183,6 +184,22 @@ describe('ensureCover', () => {
     ensureCover(rig, b, 1, true);
     expect(draw.coverTexture).toHaveBeenCalledTimes(1);
     expect(rig.faces.cover).toBe(true);
+  });
+});
+
+describe('resizeBookRig', () => {
+  it('reconstruit le pavé aux nouvelles dimensions et libère l’ancien', () => {
+    const b = makeBook({ t: 0.2, h: 2, d: 1.4 });
+    const rig = makeBookRig(b, 1);
+    const old = rig.mesh.geometry;
+    const dispose = vi.spyOn(old, 'dispose');
+    b.t = 0.5;
+    b.h = 3;
+    b.d = 2;
+    resizeBookRig(rig, b);
+    expect(dispose).toHaveBeenCalledTimes(1);
+    expect(rig.mesh.geometry).not.toBe(old);
+    expect(rig.mesh.geometry.parameters).toMatchObject({ width: 0.5, height: 3, depth: 2 });
   });
 });
 

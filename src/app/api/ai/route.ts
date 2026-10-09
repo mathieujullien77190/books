@@ -10,6 +10,7 @@ import {
   overview,
   searchLibrary,
   seriesGaps,
+  setBookDimensions,
   swapBooks,
 } from '@/lib/library';
 import { hasMongoConfig } from '@/lib/mongodb';
@@ -43,8 +44,9 @@ Règles :
 Les caisses sont numérotées par une lettre et un rang : P = petite, M = moyenne, G = grande, T = transparente (P1, M3, G2, T5…). « à côté » désigne un livre posé hors des caisses. Dans une caisse, les livres sont listés du premier (le plus à gauche, ou le plus bas d'une pile) au dernier.`;
 
 const WRITE_RULES = `
-Tu peux aussi modifier la bibliothèque (move_book, swap_books, add_book, delete_book) quand l'utilisateur le demande clairement :
+Tu peux aussi modifier la bibliothèque (move_book, swap_books, add_book, set_book_dimensions, delete_book) quand l'utilisateur le demande clairement :
 - Pour déplacer ou supprimer un livre, retrouve d'abord son id avec search_books ; s'il y a plusieurs livres possibles, demande lequel.
+- set_book_dimensions : hauteur et profondeur en cm, épaisseur en mm ; retrouve d'abord le livre avec search_books (details: true donne ses dimensions actuelles). Une dimension hors limites est refusée.
 - delete_book : demande toujours une confirmation explicite (« Je supprime X, tu confirmes ? ») et n'appelle l'outil avec confirmed: true qu'APRÈS un « oui » de l'utilisateur dans son message le plus récent.
 - Après une modification, dis ce que tu as fait en une phrase. Un livre qui ne rentre pas dans la caisse visée sera posé « à côté » par l'appli.`;
 
@@ -168,6 +170,21 @@ const WRITE_TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: 'set_book_dimensions',
+    description:
+      "Change les dimensions d'un livre existant : hauteur et profondeur en centimètres, épaisseur en millimètres. Donne au moins une dimension ; les autres restent inchangées.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        book_id: { type: 'string', description: 'id du livre (donné par search_books)' },
+        height_cm: { type: 'number', description: 'Hauteur en cm (5 à 60)' },
+        depth_cm: { type: 'number', description: 'Profondeur en cm (3 à 50)' },
+        thickness_mm: { type: 'number', description: 'Épaisseur en mm (1 à 150)' },
+      },
+      required: ['book_id'],
+    },
+  },
+  {
     name: 'delete_book',
     description:
       "Supprime définitivement un livre. N'appelle cet outil avec confirmed: true qu'après que l'utilisateur a explicitement confirmé la suppression dans son dernier message.",
@@ -247,6 +264,26 @@ const runTool = async (
         after_book_id: str(input.after_book_id) || undefined,
       })) as { ok?: boolean; title?: string; crate?: string };
       return { result: r, action: r.ok ? `Ajouté « ${r.title} » dans ${r.crate}` : undefined };
+    }
+    case 'set_book_dimensions': {
+      const r = (await setBookDimensions({
+        book_id: str(input.book_id),
+        height_cm: num(input.height_cm),
+        depth_cm: num(input.depth_cm),
+        thickness_mm: num(input.thickness_mm),
+      })) as {
+        ok?: boolean;
+        title?: string;
+        height_cm?: number;
+        depth_cm?: number;
+        thickness_mm?: number;
+      };
+      return {
+        result: r,
+        action: r.ok
+          ? `Dimensions de « ${r.title} » : ${r.height_cm} × ${r.depth_cm} cm, ${r.thickness_mm} mm d'épaisseur`
+          : undefined,
+      };
     }
     case 'delete_book': {
       const r = (await deleteBook({

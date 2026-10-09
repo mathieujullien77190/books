@@ -28,6 +28,7 @@ const m = vi.hoisted(() => {
       overview: vi.fn(),
       searchLibrary: vi.fn(),
       seriesGaps: vi.fn(),
+      setBookDimensions: vi.fn(),
       swapBooks: vi.fn(),
     },
   };
@@ -191,6 +192,7 @@ describe('POST /api/ai : réponse directe', () => {
       'move_book',
       'swap_books',
       'add_book',
+      'set_book_dimensions',
       'delete_book',
     ]);
     expect(req.system[0].text).toContain('delete_book : demande toujours une confirmation');
@@ -426,6 +428,39 @@ describe('POST /api/ai : outils', () => {
         after_book_id: undefined,
       });
       expect(body.actions).toEqual([]);
+    });
+
+    it('set_book_dimensions : transmet les dimensions et résume le changement', async () => {
+      m.lib.setBookDimensions.mockResolvedValue({
+        ok: true,
+        title: 'Zorro',
+        height_cm: 28,
+        depth_cm: 20,
+        thickness_mm: 35,
+      });
+      const { body } = await withTool(
+        use('set_book_dimensions', { book_id: 'z', height_cm: 28, depth_cm: 20, thickness_mm: 35 }),
+      );
+      expect(m.lib.setBookDimensions).toHaveBeenCalledWith({
+        book_id: 'z',
+        height_cm: 28,
+        depth_cm: 20,
+        thickness_mm: 35,
+      });
+      expect(body.actions).toEqual(["Dimensions de « Zorro » : 28 × 20 cm, 35 mm d'épaisseur"]);
+      expect(body.changed).toBe(true);
+    });
+
+    it('set_book_dimensions : une erreur ne donne aucune action', async () => {
+      m.lib.setBookDimensions.mockResolvedValue({ error: 'height_cm hors limites' });
+      const { body } = await withTool(use('set_book_dimensions', { book_id: 'z', height_cm: 'x' }));
+      expect(m.lib.setBookDimensions).toHaveBeenCalledWith({
+        book_id: 'z',
+        height_cm: undefined,
+        depth_cm: undefined,
+        thickness_mm: undefined,
+      });
+      expect(body).toMatchObject({ changed: false, actions: [] });
     });
 
     it('delete_book confirmé', async () => {

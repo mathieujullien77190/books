@@ -114,6 +114,7 @@ export class CrateEngine {
         this.save();
         this.emit();
       },
+      relayout: () => this.refresh(),
     });
     this.opened = new OpenBook({
       domain: this.domain,

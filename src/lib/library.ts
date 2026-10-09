@@ -1,6 +1,7 @@
 import type { Db, UpdateFilter } from 'mongodb';
 
 import { searchBooks } from '@/components/SearchBar/helpers';
+import { BOOK_LIMITS } from '@/constants';
 import { crateLabels } from '@/helpers';
 import { getDb } from '@/lib/mongodb';
 import type { Book, BookKind, Crate } from '@/types';
@@ -31,6 +32,13 @@ const brief = (b: Book, lib: Library, details = false) => ({
   ...(details && b.year ? { year: b.year } : {}),
   ...(details && b.isbn ? { isbn: b.isbn, isbn_confiance: b.isbnConfidence ?? 'moyenne' } : {}),
   ...(details && b.kind ? { kind: b.kind } : {}),
+  ...(details
+    ? {
+        height_cm: Math.round(b.h * 100) / 10,
+        depth_cm: Math.round(b.d * 100) / 10,
+        thickness_mm: Math.round(b.t * 1000) / 10,
+      }
+    : {}),
   // couleur dominante de la couverture (hex) : permet de distinguer « le jaune » parmi des titres proches
   color: b.color,
   crate: (b.crate && lib.labels.get(b.crate)) || ASIDE,
@@ -320,6 +328,52 @@ export const addBook = async (args: {
     note: duplicate
       ? `Attention : un livre au titre identique existait déjà (${duplicate.id}).`
       : undefined,
+  };
+};
+
+/**
+ * Change les dimensions d'un livre : hauteur et profondeur en cm, épaisseur en mm (1 unité scène = 10 cm).
+ * Une dimension hors bornes (voir BOOK_LIMITS) fait refuser tout l'appel, sans rien modifier.
+ */
+export const setBookDimensions = async (args: {
+  book_id: string;
+  height_cm?: number;
+  depth_cm?: number;
+  thickness_mm?: number;
+}): Promise<unknown> => {
+  const db = await getDb();
+  const lib = await load(db);
+  const book = lib.books.find((b) => b.id === args.book_id);
+  if (!book) return { error: `Livre introuvable : ${args.book_id}` };
+  const wanted = [
+    { key: 'h', label: 'height_cm', value: args.height_cm, factor: 10, unit: 'cm' },
+    { key: 'd', label: 'depth_cm', value: args.depth_cm, factor: 10, unit: 'cm' },
+    { key: 't', label: 'thickness_mm', value: args.thickness_mm, factor: 100, unit: 'mm' },
+  ] as const;
+  const set: Partial<Pick<Book, 'h' | 'd' | 't'>> = {};
+  for (const { key, label, value, factor, unit } of wanted) {
+    if (value === undefined) continue;
+    const [lo, hi] = BOOK_LIMITS[key];
+    const scene = Math.round((value / factor) * 1000) / 1000;
+    if (!Number.isFinite(value) || scene < lo || scene > hi)
+      return {
+        error: `${label} hors limites : entre ${lo * factor} et ${hi * factor} ${unit} (reçu ${value}).`,
+      };
+    set[key] = scene;
+  }
+  if (!Object.keys(set).length)
+    return { error: 'Aucune dimension donnée (height_cm, depth_cm ou thickness_mm).' };
+  await bumpRev(db);
+  await db.collection<Book>('books').updateOne({ id: book.id }, { $set: set });
+  await bumpRev(db);
+  const after = { ...book, ...set };
+  return {
+    ok: true,
+    title: book.title,
+    height_cm: Math.round(after.h * 100) / 10,
+    depth_cm: Math.round(after.d * 100) / 10,
+    thickness_mm: Math.round(after.t * 1000) / 10,
+    note: 'Un livre qui ne rentre plus dans sa caisse sera posé « à côté » par l’appli.',
   };
 };
 

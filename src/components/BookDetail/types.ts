@@ -13,6 +13,9 @@ export type BookPatch = Partial<
     | 'kind'
     | 'isbn'
     | 'isbnConfidence'
+    | 'h'
+    | 't'
+    | 'd'
   >
 >;
 

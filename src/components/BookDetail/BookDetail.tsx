@@ -6,9 +6,9 @@ import Panel from '@/components/ui/Panel';
 import Select from '@/components/ui/Select';
 import TextArea from '@/components/ui/TextArea';
 import TextInput from '@/components/ui/TextInput';
-import { BOOK_KINDS, BOOK_TITLE_MAX } from '@/constants';
+import { BOOK_KINDS, BOOK_LIMITS, BOOK_TITLE_MAX } from '@/constants';
 
-import { ISBN_CONFIDENCES, ISSN_PATTERN, metaText } from './constants';
+import { DIMENSIONS, ISBN_CONFIDENCES, ISSN_PATTERN, metaText } from './constants';
 import { fileToCoverDataUrl, seriesOf } from './helpers';
 import type { IsbnConfidence } from '@/types';
 
@@ -145,6 +145,35 @@ export const BookDetail = ({
           </option>
         ))}
       </Select>
+      <Label as="div">Dimensions du livre</Label>
+      <div className="grid grid-cols-3 gap-1.5">
+        {DIMENSIONS.map(({ key, label, title, factor, step }) => (
+          <div key={key}>
+            <Label htmlFor={`detail-${key}`}>{label}</Label>
+            <TextInput
+              // non contrôlé : on peut taper « 28 » en passant par « 2 » (hors bornes, ignoré) ; remonté si le livre change
+              key={`${key}-${book?.id}`}
+              id={`detail-${key}`}
+              readOnly={readOnly}
+              type="number"
+              inputMode="decimal"
+              title={title}
+              min={BOOK_LIMITS[key][0] * factor}
+              max={BOOK_LIMITS[key][1] * factor}
+              step={step}
+              defaultValue={book ? Math.round(book[key] * factor * 10) / 10 : ''}
+              onChange={(e) => {
+                const v = e.target.valueAsNumber;
+                if (Number.isFinite(v)) onChange({ [key]: v / factor });
+              }}
+              // à la sortie du champ, on réaffiche la valeur réellement retenue (une saisie hors bornes est ignorée)
+              onBlur={(e) => {
+                if (book) e.target.value = String(Math.round(book[key] * factor * 10) / 10);
+              }}
+            />
+          </div>
+        ))}
+      </div>
       <Label htmlFor="detailSummary">Résumé</Label>
       <TextArea
         id="detailSummary"

@@ -10,6 +10,7 @@ import {
   overview,
   searchLibrary,
   seriesGaps,
+  setBookDimensions,
   swapBooks,
 } from './library';
 
@@ -632,6 +633,74 @@ describe('addBook', () => {
     const r = (await addBook({ title: 'elegance DU herisson', crate: 'M1' })) as { note: string };
     expect(r.note).toBe('Attention : un livre au titre identique existait déjà (e).');
     expect(data.books).toHaveLength(6);
+  });
+});
+
+describe('setBookDimensions', () => {
+  it('refuse un livre inconnu', async () => {
+    setup();
+    expect(await setBookDimensions({ book_id: 'x', height_cm: 20 })).toEqual({
+      error: 'Livre introuvable : x',
+    });
+  });
+
+  it('exige au moins une dimension', async () => {
+    const { data } = setup();
+    expect(await setBookDimensions({ book_id: 'a' })).toEqual({
+      error: 'Aucune dimension donnée (height_cm, depth_cm ou thickness_mm).',
+    });
+    expect(data.meta).toBeUndefined();
+  });
+
+  it('convertit cm et mm en unités scène, garde les autres dimensions et incrémente la révision deux fois', async () => {
+    const { data } = setup({ ...seed(), meta: [{ _id: 'state', rev: 4 }] });
+    const r = (await setBookDimensions({
+      book_id: 'a',
+      height_cm: 28,
+      depth_cm: 20.5,
+      thickness_mm: 35,
+    })) as Record<string, unknown>;
+    expect(r).toMatchObject({
+      ok: true,
+      title: 'Astérix T1',
+      height_cm: 28,
+      depth_cm: 20.5,
+      thickness_mm: 35,
+    });
+    const a = data.books!.find((b) => b.id === 'a')!;
+    expect(a).toMatchObject({ h: 2.8, d: 2.05, t: 0.35 });
+    expect(data.meta![0]!.rev).toBe(6);
+  });
+
+  it('ne change que la dimension donnée', async () => {
+    const { data } = setup();
+    const r = (await setBookDimensions({ book_id: 'b', thickness_mm: 12 })) as {
+      height_cm: number;
+      depth_cm: number;
+    };
+    expect(data.books!.find((b) => b.id === 'b')).toMatchObject({ h: 2, d: 1.4, t: 0.12 });
+    expect(r).toMatchObject({ height_cm: 20, depth_cm: 14, thickness_mm: 12 });
+  });
+
+  it.each([
+    [{ height_cm: 4 }, 'height_cm hors limites : entre 5 et 60 cm (reçu 4).'],
+    [{ height_cm: 61 }, 'height_cm hors limites : entre 5 et 60 cm (reçu 61).'],
+    [{ depth_cm: 2 }, 'depth_cm hors limites : entre 3 et 50 cm (reçu 2).'],
+    [{ thickness_mm: 0 }, 'thickness_mm hors limites : entre 1 et 150 mm (reçu 0).'],
+    [{ thickness_mm: 151 }, 'thickness_mm hors limites : entre 1 et 150 mm (reçu 151).'],
+    [{ height_cm: Number.NaN }, 'height_cm hors limites : entre 5 et 60 cm (reçu NaN).'],
+  ])('refuse tout si une dimension est hors limites %j', async (dims, error) => {
+    const { data } = setup();
+    expect(await setBookDimensions({ book_id: 'a', ...dims })).toEqual({ error });
+    expect(data.books!.find((b) => b.id === 'a')).toMatchObject({ h: 2, d: 1.4, t: 0.2 });
+    expect(data.meta).toBeUndefined();
+  });
+
+  it('accepte exactement les bornes', async () => {
+    setup();
+    expect(
+      await setBookDimensions({ book_id: 'a', height_cm: 5, depth_cm: 50, thickness_mm: 1 }),
+    ).toMatchObject({ ok: true, height_cm: 5, depth_cm: 50, thickness_mm: 1 });
   });
 });
 

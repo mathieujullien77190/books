@@ -55,4 +55,14 @@ export const BOOK_KINDS: { kind: BookKind; label: string }[] = [
   { kind: 'autre', label: 'Autre' },
 ];
 
+/**
+ * Bornes des dimensions d'un livre (unités scène : 1 = 10 cm, épaisseur comprise) : hauteur 5 à 60 cm,
+ * profondeur 3 à 50 cm, épaisseur 1 à 150 mm. Au-delà, la saisie ou l'outil de Claude est refusé.
+ */
+export const BOOK_LIMITS = {
+  h: [0.5, 6],
+  d: [0.3, 5],
+  t: [0.01, 1.5],
+} as const;
+
 export const SCENE_BG = 0xdfe9f3;

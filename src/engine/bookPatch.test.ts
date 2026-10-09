@@ -9,6 +9,7 @@ import { OPEN_BOOK_SCALE } from './constants';
 import { Domain } from './domain';
 
 const books = vi.hoisted(() => ({
+  resizeBookRig: vi.fn(),
   updateBookTextures: vi.fn(),
   setBookResolution: vi.fn(),
 }));
@@ -92,9 +93,38 @@ describe('applyBookPatch', () => {
   });
 });
 
+describe('applyBookPatch : dimensions', () => {
+  it('applique hauteur, profondeur et épaisseur dans les bornes (arrondies au millième)', () => {
+    const b = makeBook({ h: 2, d: 1.4, t: 0.2 });
+    expect(applyBookPatch(b, { h: 2.8, d: 2.05, t: 0.3504 })).toBe(true);
+    expect(b).toMatchObject({ h: 2.8, d: 2.05, t: 0.35 });
+  });
+
+  it('refuse une valeur hors bornes, non finie ou absente', () => {
+    const b = makeBook({ h: 2, d: 1.4, t: 0.2 });
+    expect(applyBookPatch(b, { h: 0.1, d: 9, t: 0 })).toBe(false);
+    expect(applyBookPatch(b, { h: Number.NaN, d: Infinity })).toBe(false);
+    expect(applyBookPatch(b, { h: undefined })).toBe(false);
+    expect(b).toMatchObject({ h: 2, d: 1.4, t: 0.2 });
+  });
+
+  it('accepte exactement les bornes', () => {
+    const b = makeBook({});
+    expect(applyBookPatch(b, { h: 0.5, d: 5, t: 0.01 })).toBe(true);
+    expect(b).toMatchObject({ h: 0.5, d: 5, t: 0.01 });
+  });
+
+  it('ne modifie que la dimension fournie', () => {
+    const b = makeBook({ h: 2, d: 1.4, t: 0.2 });
+    expect(applyBookPatch(b, { t: 0.4 })).toBe(true);
+    expect(b).toMatchObject({ h: 2, d: 1.4, t: 0.4 });
+  });
+});
+
 describe('BookEditor', () => {
   let domain: Domain;
   let changed: ReturnType<typeof vi.fn>;
+  let relayout: ReturnType<typeof vi.fn>;
   let rigs: Map<string, BookRig>;
   let openId: string | null;
 
@@ -105,6 +135,7 @@ describe('BookEditor', () => {
       openId: () => openId,
       aniso: 4,
       changed,
+      relayout,
     };
     return new BookEditor(host);
   };
@@ -114,9 +145,11 @@ describe('BookEditor', () => {
     stubWindow();
     books.updateBookTextures.mockClear();
     books.setBookResolution.mockClear();
+    books.resizeBookRig.mockClear();
     domain = new Domain();
     domain.books = [makeBook({ id: 'a', title: 'A' }), makeBook({ id: 'b', title: 'B' })];
     changed = vi.fn();
+    relayout = vi.fn();
     rigs = new Map();
     openId = null;
   });
@@ -132,6 +165,33 @@ describe('BookEditor', () => {
     expect(domain.books[0]!.title).toBe('Nouveau');
     expect(changed).toHaveBeenCalledTimes(1);
     expect(domain.history.canUndo).toBe(true);
+  });
+
+  it('redimensionne le pavé et refait la disposition quand une dimension change', () => {
+    const rig = { id: 'a' } as BookRig;
+    rigs.set('a', rig);
+    const ed = makeEditor();
+    ed.update('a', { h: 2.9 });
+    expect(domain.books[0]!.h).toBe(2.9);
+    expect(books.resizeBookRig).toHaveBeenCalledWith(rig, domain.books[0]);
+    expect(relayout).toHaveBeenCalledTimes(1);
+    expect(changed).toHaveBeenCalledTimes(1);
+  });
+
+  it('refait la disposition même sans pavé construit, et ignore une valeur refusée', () => {
+    const ed = makeEditor();
+    ed.update('a', { d: 1.8 });
+    expect(books.resizeBookRig).not.toHaveBeenCalled();
+    expect(relayout).toHaveBeenCalledTimes(1);
+    relayout.mockClear();
+    ed.update('a', { t: 99 });
+    expect(relayout).not.toHaveBeenCalled();
+  });
+
+  it('ne refait pas la disposition pour un champ sans dimension', () => {
+    const ed = makeEditor();
+    ed.update('a', { title: 'X' });
+    expect(relayout).not.toHaveBeenCalled();
   });
 
   it('ignore un livre inconnu', () => {

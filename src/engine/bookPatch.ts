@@ -3,9 +3,10 @@
  * sur un livre (valeurs saisies nettoyées) et éditeur qui regroupe les saisies dans l'historique et
  * refait les textures.
  */
+import { BOOK_LIMITS } from '@/constants';
 import type { Book, Id } from '@/types';
 
-import { setBookResolution, updateBookTextures, type BookRig } from './books';
+import { resizeBookRig, setBookResolution, updateBookTextures, type BookRig } from './books';
 import { OPEN_BOOK_SCALE } from './constants';
 import type { Domain } from './domain';
 
@@ -23,11 +24,29 @@ export type BookPatch = Partial<
     | 'kind'
     | 'isbn'
     | 'isbnConfidence'
+    | 'h'
+    | 't'
+    | 'd'
   >
 >;
 
 /** Applique le patch au livre ; renvoie vrai si ses textures (tranche, couverture, dos) sont à refaire. */
+/** Dimension acceptée : un nombre dans les bornes (sinon la valeur reste celle du livre). */
+const validDim = (key: 'h' | 'd' | 't', value: number | undefined): value is number =>
+  value !== undefined &&
+  Number.isFinite(value) &&
+  value >= BOOK_LIMITS[key][0] &&
+  value <= BOOK_LIMITS[key][1];
+
 export const applyBookPatch = (b: Book, patch: BookPatch): boolean => {
+  let resized = false;
+  for (const key of ['h', 'd', 't'] as const) {
+    const v = patch[key];
+    if (validDim(key, v)) {
+      b[key] = Math.round(v * 1000) / 1000;
+      resized = true;
+    }
+  }
   const title = patch.title?.trim();
   if (title) b.title = title;
   if (patch.color !== undefined) b.color = patch.color;
@@ -47,6 +66,7 @@ export const applyBookPatch = (b: Book, patch: BookPatch): boolean => {
     'isbn' in patch ||
     'isbnConfidence' in patch;
   return (
+    resized ||
     patch.title !== undefined ||
     patch.color !== undefined ||
     patch.summary !== undefined ||
@@ -63,6 +83,8 @@ export type BookEditorHost = {
   aniso: number;
   /** Les données ont changé : le snapshot est à recopier, la base à mettre à jour, l'interface à prévenir. */
   changed: () => void;
+  /** Les dimensions d'un livre ont changé : la disposition des livres est à refaire. */
+  relayout: () => void;
 };
 
 /** Édition d'un livre depuis la fiche : une saisie suivie = une seule entrée d'historique, textures refaites après une pause. */
@@ -82,6 +104,11 @@ export class BookEditor {
       h.domain.pushHistory();
     this.lastEdit = { id, ts: now };
     if (applyBookPatch(b, patch)) {
+      if ('h' in patch || 'd' in patch || 't' in patch) {
+        const rig = h.rigOf(id);
+        if (rig) resizeBookRig(rig, b);
+        h.relayout();
+      }
       window.clearTimeout(this.texTimer);
       this.texTimer = window.setTimeout(() => {
         const rig = h.rigOf(id);

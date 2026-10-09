@@ -116,6 +116,12 @@ export const makeBookRig = (b: Book, aniso: number): BookRig => {
   };
 };
 
+/** Nouvelles dimensions du livre : le pavé est reconstruit (la tranche est redessinée par `updateBookTextures`). */
+export const resizeBookRig = (rig: BookRig, b: Book): void => {
+  rig.mesh.geometry.dispose();
+  rig.mesh.geometry = new THREE.BoxGeometry(b.t, b.h, b.d);
+};
+
 /** Dessine la couverture si elle ne l'est pas encore (livre couché, voisin du livre sorti…). En mode léger, seulement si `force`. */
 export const ensureCover = (rig: BookRig, b: Book, aniso: number, force = false): void => {
   if (rig.faces.cover || (lite && !force)) return;

@@ -399,6 +399,17 @@ describe('livres', () => {
     expect(snap().canUndo).toBe(false);
   });
 
+  it('change les dimensions d’un livre : valeur gardée dans l’état, valeur hors bornes ignorée', async () => {
+    engine.updateBook('Alpha T1', { h: 2.9, t: 0.4 });
+    const b = snap().books.find((k) => k.id === 'Alpha T1')!;
+    expect(b).toMatchObject({ h: 2.9, t: 0.4 });
+    engine.updateBook('Alpha T1', { h: 99 });
+    expect(snap().books.find((k) => k.id === 'Alpha T1')!.h).toBe(2.9);
+    await tick(900);
+    const sent = h.syncBodies()[0]!.books as Book[];
+    expect(sent.find((k) => k.id === 'Alpha T1')).toMatchObject({ h: 2.9, t: 0.4 });
+  });
+
   it('supprime un livre, y compris celui qui est sorti', () => {
     engine.openBook('libre');
     engine.removeBook('libre');

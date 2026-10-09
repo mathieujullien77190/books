@@ -18,6 +18,7 @@ import { DEFAULT_MODEL, MODEL_OPTIONS } from './constants';
 import { useAiChat } from './useAiChat';
 import { useSpeechRecognition } from './useSpeechRecognition';
 import { plainAnswer, useSpeechSynthesis } from './useSpeechSynthesis';
+import { useWakeWord } from './useWakeWord';
 
 const timeOf = (at?: number): string =>
   at ? new Date(at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
@@ -70,7 +71,9 @@ export const AiTab = ({
   /** Réponses lues à voix haute (synthèse vocale du navigateur), choix gardé sur l'appareil. */
   const [voice, setVoice] = useLocalStorageState(VOICE_STORAGE, '0');
   const voiceOn = voice === '1';
-  const { canSpeak: canVoice, speak, stop: stopVoice } = useSpeechSynthesis();
+  const { canSpeak: canVoice, speaking, speak, stop: stopVoice } = useSpeechSynthesis();
+  /** Écoute mains libres : dire « Claude » suivi de la question. */
+  const [handsFree, setHandsFree] = useState(false);
   /** Champ de la clé replié derrière le bouton 🔑 ; ouvert d'office tant qu'il n'y a pas de clé. */
   const [showKey, setShowKey] = useState(() => !key);
   /** Explication « pourquoi une clé ? » : repliée derrière le bouton « ? ». */
@@ -93,6 +96,20 @@ export const AiTab = ({
   });
   const end = useRef<HTMLDivElement>(null);
   const hasKey = !!key.trim();
+  const { awake, canListen } = useWakeWord({
+    enabled: handsFree && hasKey,
+    paused: busy || speaking || listening,
+    onWake: () => {
+      stopVoice();
+      setError('');
+    },
+    onTranscript: setQuestion,
+    onFinal: (heard) => void send(heard),
+    onError: (message) => {
+      setHandsFree(false);
+      setError(message);
+    },
+  });
 
   // lit la nouvelle réponse (pas celles d'une conversation restaurée à l'ouverture du panneau)
   const lastSpoken = useRef<number | undefined>(turns.findLast((t) => t.role === 'assistant')?.at);
@@ -257,6 +274,18 @@ export const AiTab = ({
           }}
         />
         <div className="flex items-center justify-end gap-1.5">
+          {canListen && (
+            <Button
+              variant={handsFree ? 'active' : 'default'}
+              pressed={handsFree}
+              aria-label={handsFree ? 'Arrêter l’écoute du mot Claude' : 'Écouter le mot Claude'}
+              title="Dis « Claude » puis ta question : l’écoute reste ouverte tant que ce bouton est actif"
+              disabled={!hasKey}
+              onClick={() => setHandsFree((v) => !v)}
+            >
+              {handsFree ? (awake ? '🎤 Je t’écoute…' : '👂 Dis « Claude »') : '👂 Mains libres'}
+            </Button>
+          )}
           {canSpeak && (
             <Button
               variant={listening ? 'active' : 'default'}

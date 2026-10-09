@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 /** Reconnaissance vocale du navigateur (Chrome, Edge, Safari) : types minimaux, absents de lib.dom. */
-type Recognition = {
+export type Recognition = {
   lang: string;
   interimResults: boolean;
   continuous: boolean;
@@ -16,7 +16,7 @@ type Recognition = {
   stop: () => void;
 };
 
-const speechCtor = (): (new () => Recognition) | null => {
+export const speechCtor = (): (new () => Recognition) | null => {
   const w = window as unknown as Record<string, new () => Recognition>;
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 };

@@ -13,9 +13,13 @@ export const plainAnswer = (text: string): string =>
 /** Lecture à voix haute (synthèse vocale du navigateur) : `speak` remplace ce qui se dit, `stop` coupe ; `canSpeak` est faux si le navigateur ne sait pas faire. */
 export const useSpeechSynthesis = () => {
   const [canSpeak] = useState(() => typeof window !== 'undefined' && 'speechSynthesis' in window);
+  /** Une réponse est en train d'être lue : l'écoute mains libres attend la fin pour ne pas s'entendre elle-même. */
+  const [speaking, setSpeaking] = useState(false);
 
   const stop = useCallback((): void => {
-    if (canSpeak) window.speechSynthesis.cancel();
+    if (!canSpeak) return;
+    window.speechSynthesis.cancel();
+    setSpeaking(false);
   }, [canSpeak]);
 
   const speak = useCallback(
@@ -24,6 +28,9 @@ export const useSpeechSynthesis = () => {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'fr-FR';
+      utterance.onstart = () => setSpeaking(true);
+      utterance.onend = () => setSpeaking(false);
+      utterance.onerror = () => setSpeaking(false);
       window.speechSynthesis.speak(utterance);
     },
     [canSpeak],
@@ -32,5 +39,5 @@ export const useSpeechSynthesis = () => {
   // quitter le panneau coupe la voix
   useEffect(() => stop, [stop]);
 
-  return { canSpeak, speak, stop };
+  return { canSpeak, speaking, speak, stop };
 };

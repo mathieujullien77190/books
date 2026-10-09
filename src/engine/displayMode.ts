@@ -6,7 +6,7 @@
  */
 import type * as THREE from 'three';
 
-import type { Id } from '@/types';
+import type { Id, LoadProgress } from '@/types';
 
 import { applyLiteMode, setBookResolution, setLiteBooks, type BookRig } from './books';
 import { LITE_KEY, OPEN_BOOK_SCALE } from './constants';
@@ -36,6 +36,8 @@ export class DisplayMode {
   lite = true;
   /** Choix de la personne (gardé dans localStorage) : léger ou complet. */
   choice = false;
+  /** Avancement de la montée en mode complet (null au repos), montré par une barre discrète. */
+  progress: LoadProgress | null = null;
   /** Numéro de la montée en mode complet en cours (0 = aucune) ; sert à l'interrompre. */
   private upgradeRun = 0;
 
@@ -58,6 +60,7 @@ export class DisplayMode {
       // stockage indisponible : le choix vaut pour cette visite seulement
     }
     this.upgradeRun = 0; // interrompt une montée en mode complet en cours
+    this.progress = null;
     if (this.lite !== on) this.apply(on);
     else this.host.emit();
   }
@@ -97,6 +100,7 @@ export class DisplayMode {
     const run = ++this.upgradeRun;
     setLiteBooks(false); // les livres créés d'ici là sont déjà complets
     const queue = [...h.bookRigs.keys()];
+    const total = queue.length;
     const step = (): void => {
       if (h.isDisposed() || this.upgradeRun !== run) return;
       for (const id of queue.splice(0, 12)) {
@@ -106,10 +110,16 @@ export class DisplayMode {
       }
       h.touch();
       if (queue.length) {
+        this.progress = {
+          label: `Textures des livres : ${total - queue.length} / ${total}`,
+          value: (total - queue.length) / total,
+        };
+        h.emit();
         window.setTimeout(step, 16);
         return;
       }
       this.upgradeRun = 0;
+      this.progress = null;
       this.lite = false;
       h.sun.castShadow = !h.transparent;
       for (const rig of h.crateRigs.values()) rig.group.visible = true;

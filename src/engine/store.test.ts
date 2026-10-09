@@ -14,6 +14,7 @@ const source = (
   books,
   loading: false,
   loadError: false,
+  progress: null,
   lite: false,
   selectedId: null,
   openId: null,

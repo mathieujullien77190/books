@@ -234,6 +234,30 @@ describe('DisplayMode.upgrade', () => {
     expect(books.applyLiteMode).toHaveBeenCalledTimes(30);
   });
 
+  it('publie l’avancement lot par lot, puis l’efface à la fin', () => {
+    const d = build();
+    addBooks(30);
+    d.upgrade();
+    expect(d.progress).toBeNull();
+    vi.advanceTimersByTime(150);
+    expect(d.progress).toEqual({ label: 'Textures des livres : 12 / 30', value: 12 / 30 });
+    vi.advanceTimersByTime(16);
+    expect(d.progress).toEqual({ label: 'Textures des livres : 24 / 30', value: 24 / 30 });
+    vi.advanceTimersByTime(16);
+    expect(d.progress).toBeNull();
+    expect(host.emit).toHaveBeenCalled();
+  });
+
+  it('efface l’avancement quand la personne choisit un mode en cours de montée', () => {
+    const d = build();
+    addBooks(30);
+    d.upgrade();
+    vi.advanceTimersByTime(150);
+    expect(d.progress).not.toBeNull();
+    d.set(true);
+    expect(d.progress).toBeNull();
+  });
+
   it('passe tout de suite au complet quand il n’y a aucun livre', () => {
     const d = build();
     d.upgrade();

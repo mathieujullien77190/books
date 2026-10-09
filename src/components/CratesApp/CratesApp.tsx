@@ -8,6 +8,7 @@ import MissingBar from '@/components/ToBuyList/MissingBar';
 import ToBuyList from '@/components/ToBuyList';
 import Button from '@/components/ui/Button';
 import LoadingOverlay from '@/components/ui/LoadingOverlay';
+import ProgressBar from '@/components/ui/ProgressBar';
 import Toast from '@/components/ui/Toast';
 
 import { crateLabels } from '@/helpers';
@@ -102,7 +103,19 @@ export const CratesApp = ({ className = '' }: CratesAppProps) => {
           </Button>
         </div>
       )}
-      {snap.loading && <LoadingOverlay message="Chargement de la bibliothèque…" bare={bg} />}
+      {snap.loading && (
+        <LoadingOverlay
+          message="Chargement de la bibliothèque…"
+          bare={bg}
+          progress={snap.progress}
+        />
+      )}
+      {!snap.loading && snap.progress && !bg && (
+        <div className="pointer-events-none fixed bottom-1 left-1/2 z-30 flex w-[min(260px,calc(100vw-32px))] -translate-x-1/2 flex-col items-center gap-1">
+          <span className="text-xs text-muted">{snap.progress.label}</span>
+          <ProgressBar label={snap.progress.label} value={snap.progress.value} />
+        </div>
+      )}
       {snap.missingBrowse && (
         <MissingBar
           browse={snap.missingBrowse}

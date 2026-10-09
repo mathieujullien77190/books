@@ -81,6 +81,9 @@ export type SavedState = {
 };
 
 /** Instantané de l'état du moteur, consommé par l'interface React. */
+/** Avancement affiché pendant le chargement : ce qui se charge et la part faite (0 à 1). */
+export type LoadProgress = { label: string; value: number };
+
 export type Snapshot = {
   crates: Crate[];
   books: Book[];
@@ -89,6 +92,8 @@ export type Snapshot = {
   loading: boolean;
   /** La base n'a pas pu être lue : l'interface propose de réessayer (rien n'est envoyé en attendant). */
   loadError: boolean;
+  /** Ce qui se charge : le chargement initial, puis la montée en mode complet ; null au repos. */
+  progress: LoadProgress | null;
   /** Mode léger : livres rangés en pavés d'une couleur, sans caisses, mésange ni ombres. */
   lite: boolean;
   selectedId: Id | null;

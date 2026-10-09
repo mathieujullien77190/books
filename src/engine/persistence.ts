@@ -24,6 +24,8 @@ export type PersistenceHost = {
   getState: () => PersistedState;
   /** Remplace l'état local par celui de la base (ou la migration), sans l'envoyer en retour. */
   load: (state: SavedState, decor: DecorState) => void;
+  /** Étape du chargement initial, pour la barre d'avancement (ignorée une fois le chargement fini). */
+  progress: (label: string, value: number) => void;
   /** La base n'a pas pu être lue (réponse en erreur ou injoignable). */
   failed: () => void;
   /** Chargement réussi : le moteur recadre la vue (premier chargement) et refait le tas des manquants. */
@@ -63,6 +65,7 @@ export class Persistence {
   async hydrate(first = true): Promise<void> {
     const host = this.host;
     try {
+      host.progress('Lecture de la base de données…', 0.1);
       const res = await fetch('/api/state', { cache: 'no-store' });
       const data = (await res.json()) as {
         ok: boolean;
@@ -76,6 +79,7 @@ export class Persistence {
         host.failed();
         return host.endLoading();
       }
+      host.progress('Construction des caisses et des livres…', 0.45);
       // l'indicateur de chargement doit être peint avant le gros travail (dessin de toutes les tranches)
       if (first)
         await new Promise<void>((r) =>

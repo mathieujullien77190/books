@@ -65,6 +65,7 @@ export class CrateEngine {
       if (first) this.recenter();
       this.syncGhosts();
     },
+    progress: (label, value) => this.load.step(label, value),
     endLoading: () => this.load.end(),
   });
 
@@ -154,6 +155,7 @@ export class CrateEngine {
       books: this.domain.books,
       loading: this.load.pending,
       loadError: this.load.failed,
+      progress: this.load.pending ? this.load.progress : this.display.progress,
       lite: this.display.choice,
       selectedId: this.domain.selectedId,
       openId: this.opened.id,

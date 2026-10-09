@@ -34,6 +34,7 @@ const makeHost = (over: Partial<PersistenceHost> = {}) => {
       current.books = s.books;
       current.decor = d;
     }),
+    progress: vi.fn(),
     failed: vi.fn(),
     loaded: vi.fn(),
     endLoading: vi.fn(),
@@ -101,6 +102,13 @@ describe('Persistence.hydrate', () => {
     expect(p.hydrated).toBe(true);
     expect(host.loaded).toHaveBeenCalledWith(true);
     expect(host.endLoading).toHaveBeenCalledTimes(1);
+    // les étapes du chargement sont annoncées dans l'ordre
+    expect(host.progress).toHaveBeenNthCalledWith(1, 'Lecture de la base de données…', 0.1);
+    expect(host.progress).toHaveBeenNthCalledWith(
+      2,
+      'Construction des caisses et des livres…',
+      0.45,
+    );
     // état identique à celui lu : aucun envoi
     await p.push();
     expect(fetchMock).toHaveBeenCalledTimes(1);

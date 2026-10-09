@@ -29,12 +29,17 @@ describe('LoadState', () => {
     });
     load.end();
     expect(warmUp).toHaveBeenCalledTimes(1);
-    // tant que le premier rendu n'est pas fait, l'indicateur reste
+    // tant que le premier rendu n'est pas fait, l'indicateur reste, avec son étape
     expect(load.pending).toBe(true);
-    expect(host.emit).not.toHaveBeenCalled();
+    expect(load.progress).toEqual({
+      label: "Préparation de l'affichage 3D (shaders, textures)…",
+      value: 0.85,
+    });
+    expect(host.emit).toHaveBeenCalledTimes(1);
     done();
     expect(load.pending).toBe(false);
-    expect(host.emit).toHaveBeenCalledTimes(1);
+    expect(load.progress).toBeNull();
+    expect(host.emit).toHaveBeenCalledTimes(2);
     expect(host.shown).toHaveBeenCalledTimes(1);
   });
 
@@ -51,7 +56,27 @@ describe('LoadState', () => {
     load.end();
     expect(warmUp).toHaveBeenCalledTimes(1);
     expect(load.pending).toBe(false);
-    expect(host.emit).toHaveBeenCalledTimes(2);
+    expect(host.emit).toHaveBeenCalledTimes(3);
     expect(host.shown).toHaveBeenCalledTimes(1);
+  });
+
+  it('affiche la lecture de la base au départ et suit les étapes', () => {
+    const { host, load } = setup();
+    expect(load.progress).toEqual({ label: 'Lecture de la base de données…', value: 0.1 });
+    load.step('Construction des caisses et des livres…', 0.45);
+    expect(load.progress).toEqual({
+      label: 'Construction des caisses et des livres…',
+      value: 0.45,
+    });
+    expect(host.emit).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignore une étape quand le chargement est fini (rechargement de la base)', () => {
+    const { host, load } = setup();
+    load.end();
+    const before = (host.emit as ReturnType<typeof vi.fn>).mock.calls.length;
+    load.step('Lecture de la base de données…', 0.1);
+    expect(load.progress).toBeNull();
+    expect(host.emit).toHaveBeenCalledTimes(before);
   });
 });

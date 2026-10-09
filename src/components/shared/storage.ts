@@ -7,6 +7,9 @@ export const KEY_STORAGE = 'anthropic-api-key';
 /** Clé localStorage du modèle choisi pour Claude. */
 export const MODEL_STORAGE = 'ai-model';
 
+/** Clé localStorage du choix « Claude répond à voix haute » ('1' = oui). */
+export const VOICE_STORAGE = 'ai-voice';
+
 /** Lit le localStorage ; null si la clé est absente ou le stockage indisponible (navigation privée…). */
 export const readStorage = (key: string): string | null => {
   try {

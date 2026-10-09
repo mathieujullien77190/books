@@ -2,7 +2,12 @@
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 
-import { KEY_STORAGE, MODEL_STORAGE, useLocalStorageState } from '@/components/shared';
+import {
+  KEY_STORAGE,
+  MODEL_STORAGE,
+  VOICE_STORAGE,
+  useLocalStorageState,
+} from '@/components/shared';
 import Button from '@/components/ui/Button';
 import IconButton from '@/components/ui/IconButton';
 import Select from '@/components/ui/Select';
@@ -12,6 +17,7 @@ import TextInput from '@/components/ui/TextInput';
 import { DEFAULT_MODEL, MODEL_OPTIONS } from './constants';
 import { useAiChat } from './useAiChat';
 import { useSpeechRecognition } from './useSpeechRecognition';
+import { plainAnswer, useSpeechSynthesis } from './useSpeechSynthesis';
 
 const timeOf = (at?: number): string =>
   at ? new Date(at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
@@ -61,6 +67,10 @@ export const AiTab = ({
   const [model, setModel] = useLocalStorageState(MODEL_STORAGE, DEFAULT_MODEL, {
     validate: isModel,
   });
+  /** Réponses lues à voix haute (synthèse vocale du navigateur), choix gardé sur l'appareil. */
+  const [voice, setVoice] = useLocalStorageState(VOICE_STORAGE, '0');
+  const voiceOn = voice === '1';
+  const { canSpeak: canVoice, speak, stop: stopVoice } = useSpeechSynthesis();
   /** Champ de la clé replié derrière le bouton 🔑 ; ouvert d'office tant qu'il n'y a pas de clé. */
   const [showKey, setShowKey] = useState(() => !key);
   /** Explication « pourquoi une clé ? » : repliée derrière le bouton « ? ». */
@@ -84,12 +94,22 @@ export const AiTab = ({
   const end = useRef<HTMLDivElement>(null);
   const hasKey = !!key.trim();
 
+  // lit la nouvelle réponse (pas celles d'une conversation restaurée à l'ouverture du panneau)
+  const lastSpoken = useRef<number | undefined>(turns.findLast((t) => t.role === 'assistant')?.at);
+  useEffect(() => {
+    const last = turns[turns.length - 1];
+    if (last?.role !== 'assistant' || last.at === lastSpoken.current) return;
+    lastSpoken.current = last.at;
+    if (voiceOn) speak(plainAnswer(last.content));
+  }, [turns, voiceOn, speak]);
+
   useEffect(() => {
     end.current?.scrollIntoView({ block: 'nearest' });
   }, [turns, busy]);
 
   const ask = (e: FormEvent): void => {
     e.preventDefault();
+    stopVoice(); // une nouvelle question coupe la réponse en cours
     void send(question);
   };
 
@@ -131,6 +151,19 @@ export const AiTab = ({
             </option>
           ))}
         </Select>
+        {canVoice && (
+          <IconButton
+            className={`h-8 w-9 shrink-0 rounded-lg bg-white text-base ${voiceOn ? 'border-ink' : ''}`}
+            label={voiceOn ? 'Réponses à voix haute : activées' : 'Réponses à voix haute : coupées'}
+            aria-pressed={voiceOn}
+            onClick={() => {
+              if (voiceOn) stopVoice();
+              setVoice(voiceOn ? '0' : '1');
+            }}
+          >
+            {voiceOn ? '🔊' : '🔇'}
+          </IconButton>
+        )}
         <IconButton
           className={`h-8 w-8 shrink-0 rounded-lg bg-white text-sm font-semibold ${showHelp ? 'border-ink' : ''}`}
           label="Pourquoi une clé API ?"

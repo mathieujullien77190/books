@@ -4,6 +4,8 @@ Range tes livres dans des caisses, en 3D. Une appli Next.js où chaque caisse en
 contient ses livres, avec leur couverture, leur tranche et leur résumé au dos. Les données vivent dans
 MongoDB ; un assistant Claude peut répondre aux questions sur la collection et la modifier.
 
+**Live : <https://books-mathieu-jullien.vercel.app/>**
+
 ## Ce que fait l'appli
 
 - **Scène 3D** : caisses petites, moyennes, grandes ou transparentes, empilables (gravité et aimantation), livres

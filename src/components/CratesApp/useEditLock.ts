@@ -1,22 +1,17 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import type { CrateEngine } from '@/engine/CrateEngine';
 import type { Mode } from '@/types';
 
-import { DENIED_MESSAGES, DENIED_TOAST_MS } from './constants';
 import { EDIT_TOKEN_KEY, useIsEmbed, writeStorage } from '@/components/shared';
 
 import { checkEditToken, unlockEdit } from './helpers';
 import type { EditLock } from './types';
 
 /**
- * Verrou d'Édition et message de refus. Déverrouillé quand le serveur accepte le code, ou le jeton
- * gardé sur l'appareil ; verrouillé, le moteur appelle `denied` à chaque tentative de modification.
+ * Verrou d'Édition. Déverrouillé quand le serveur accepte le code, ou le jeton gardé sur l'appareil.
  */
-export const useEditLock = (
-  engine: CrateEngine | null,
-  mode: Mode,
-): { lock: EditLock; toast: string } => {
+export const useEditLock = (engine: CrateEngine | null, mode: Mode): EditLock => {
   const embed = useIsEmbed(); // dans le bureau d'AOC : jamais d'Édition
   const [unlocked, setUnlocked] = useState(false);
   useEffect(() => {
@@ -32,19 +27,7 @@ export const useEditLock = (
     if (!unlocked && engine && mode === 'edit') engine.setMode('view');
   }, [unlocked, engine, mode]);
 
-  const [toast, setToast] = useState('');
-  const toastTimer = useRef(0);
-  const denied = useCallback((): void => {
-    setToast(DENIED_MESSAGES[Math.floor(Math.random() * DENIED_MESSAGES.length)] ?? '');
-    window.clearTimeout(toastTimer.current);
-    toastTimer.current = window.setTimeout(() => setToast(''), DENIED_TOAST_MS);
-  }, []);
-  useEffect(() => () => window.clearTimeout(toastTimer.current), []);
-
   const locked = !unlocked;
-  useEffect(() => {
-    engine?.setEditDeniedHandler(locked ? denied : null);
-  }, [engine, locked, denied]);
 
   const unlock = useCallback(
     async (code: string): Promise<boolean> => {
@@ -62,5 +45,5 @@ export const useEditLock = (
     setUnlocked(false);
   }, []);
 
-  return { lock: { locked, unlock, relock, denied }, toast };
+  return { locked, unlock, relock };
 };

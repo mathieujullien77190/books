@@ -407,11 +407,6 @@ export class CrateEngine {
     this.emit();
   }
 
-  /** Fonction appelée quand un geste cherche à modifier la bibliothèque en Lecture (null : rien). */
-  setEditDeniedHandler(handler: (() => void) | null): void {
-    this.input.setEditDeniedHandler(handler);
-  }
-
   /** Met une caisse en surbrillance (survol de sa place dans la fiche), ou l'éteint avec null. */
   hintCrate(id: Id | null): void {
     this.crateRigs.hint(id);

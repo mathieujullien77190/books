@@ -509,17 +509,14 @@ describe('souris', () => {
     expect(snap().openId).toBeNull();
   });
 
-  it('glisser un livre en lecture avertit que l’Édition est verrouillée', async () => {
+  it('glisser un livre en lecture ne l’ouvre pas', async () => {
     await boot();
     await tick(1000);
-    const denied = vi.fn();
-    engine.setEditDeniedHandler(denied);
     const target = meshOf('Alpha T2');
     const start = at(target);
     h.canvasHandlers.get('pointerdown')!(pointer(start));
     h.canvasHandlers.get('pointermove')!(pointer({ ...start, clientX: start.clientX + 30 }));
     h.canvasHandlers.get('pointerup')!(pointer({ ...start, clientX: start.clientX + 30 }));
-    expect(denied).toHaveBeenCalledTimes(1);
     expect(snap().openId).toBeNull();
   });
 

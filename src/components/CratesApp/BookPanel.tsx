@@ -14,7 +14,6 @@ export const BookPanel = ({ engine, snap, labels, openBook, lock, onClose }: Boo
     crateLabel={openBook?.crate ? (labels.get(openBook.crate) ?? null) : null}
     allBooks={snap.books}
     readOnly={lock.locked}
-    onDenied={lock.denied}
     onChange={(patch) => openBook && engine?.updateBook(openBook.id, patch)}
     onOpen={(id) => engine?.openBook(id)}
     onHint={(crateId) => engine?.hintCrate(crateId)}

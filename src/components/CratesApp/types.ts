@@ -23,8 +23,6 @@ export type EditLock = {
   unlock: (code: string) => Promise<boolean>;
   /** Reverrouille l'Édition sur cet appareil (le jeton est oublié). */
   relock: () => void;
-  /** Tentative de modification refusée : affiche le message du Super Matou. */
-  denied: () => void;
 };
 
 /** Ce que reçoivent les deux mises en page (bureau, téléphone). */

@@ -9,7 +9,6 @@ import ToBuyList from '@/components/ToBuyList';
 import Button from '@/components/ui/Button';
 import LoadingOverlay from '@/components/ui/LoadingOverlay';
 import ProgressBar from '@/components/ui/ProgressBar';
-import Toast from '@/components/ui/Toast';
 
 import { crateLabels } from '@/helpers';
 
@@ -33,7 +32,7 @@ export const CratesApp = ({ className = '' }: CratesAppProps) => {
     els.forEach((el) => el.style.setProperty('background', 'transparent'));
     return () => els.forEach((el) => el.style.removeProperty('background'));
   }, [bg]);
-  const { lock, toast } = useEditLock(engine, snap.mode);
+  const lock = useEditLock(engine, snap.mode);
   useEffect(() => {
     engine?.setCrateClickZoom(!phone); // téléphone : plus de zoom au toucher d'une caisse, seulement au pincement
   }, [engine, phone]);
@@ -61,7 +60,7 @@ export const CratesApp = ({ className = '' }: CratesAppProps) => {
           books={snap.books}
           labels={labels}
           onOpen={(id) => engine?.openBook(id)}
-          onRemove={(id) => (lock.locked ? lock.denied() : engine?.removeBook(id))}
+          onRemove={(id) => !lock.locked && engine?.removeBook(id)}
           onShowAll={(ids) => engine?.showBooks(ids)}
         />
       )}
@@ -126,7 +125,6 @@ export const CratesApp = ({ className = '' }: CratesAppProps) => {
         />
       )}
       {showBuy && <ToBuyList books={snap.books} onClose={() => setShowBuy(false)} />}
-      <Toast message={toast} />
       <div
         ref={attachTooltip}
         className="pointer-events-none fixed z-30 translate-x-3 translate-y-3 rounded-md bg-ink px-2 py-1 text-xs whitespace-nowrap text-white opacity-0 transition-opacity duration-100"

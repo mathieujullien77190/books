@@ -535,30 +535,15 @@ describe('geste sur un livre : glisser', () => {
     fire('pointerdown', ev({ pointerType }));
   };
 
-  it('signale une fois « pas touche » après 5 px, à la souris', () => {
-    const denied = vi.fn();
-    input.setEditDeniedHandler(denied);
+  it('un glisser de plus de 5 px est ignoré, à la souris comme au doigt', () => {
     start();
-    fire('pointermove', ev({ clientX: 403, clientY: 300 }));
-    expect(denied).not.toHaveBeenCalled();
-    fire('pointermove', ev({ clientX: 405, clientY: 300 }));
-    fire('pointermove', ev({ clientX: 450, clientY: 300 }));
-    expect(denied).toHaveBeenCalledTimes(1);
-  });
-
-  it('au doigt, un glisser est un déplacement de la vue : rien n’est signalé', () => {
-    const denied = vi.fn();
-    input.setEditDeniedHandler(denied);
+    expect(() => {
+      fire('pointermove', ev({ clientX: 403, clientY: 300 }));
+      fire('pointermove', ev({ clientX: 405, clientY: 300 }));
+      fire('pointermove', ev({ clientX: 450, clientY: 300 }));
+    }).not.toThrow();
     start('touch');
-    fire('pointermove', ev({ clientX: 450, pointerType: 'touch' }));
-    expect(denied).not.toHaveBeenCalled();
-  });
-
-  it('sans gestionnaire, un glisser ne plante pas', () => {
-    start();
-    expect(() => fire('pointermove', ev({ clientX: 450 }))).not.toThrow();
-    input.setEditDeniedHandler(null);
-    expect(() => fire('pointermove', ev({ clientX: 460 }))).not.toThrow();
+    expect(() => fire('pointermove', ev({ clientX: 450, pointerType: 'touch' }))).not.toThrow();
   });
 });
 

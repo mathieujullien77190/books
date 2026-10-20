@@ -19,15 +19,15 @@ export const BookDetail = ({
   crateLabel,
   allBooks,
   readOnly = false,
-  onDenied,
   onChange: applyChange,
   onOpen,
   onHint,
   onClose,
 }: BookDetailProps) => {
   const series = book ? seriesOf(book, allBooks) : null;
-  const onChange: BookDetailProps['onChange'] = (patch) =>
-    readOnly ? onDenied?.() : applyChange(patch);
+  const onChange: BookDetailProps['onChange'] = (patch) => {
+    if (!readOnly) applyChange(patch);
+  };
 
   return (
     <Panel
@@ -38,12 +38,9 @@ export const BookDetail = ({
       aria-hidden={!book}
       // fiche masquée : ses champs ne doivent ni prendre le focus ni être lus
       inert={!book}
-      onFocusCapture={(e) => readOnly && e.target.matches('input,textarea') && onDenied?.()}
       onClickCapture={(e) => {
-        if (readOnly && (e.target as HTMLElement).closest('select,input[type=file],[data-edit]')) {
+        if (readOnly && (e.target as HTMLElement).closest('select,input[type=file],[data-edit]'))
           e.preventDefault();
-          onDenied?.();
-        }
       }}
     >
       <IconButton

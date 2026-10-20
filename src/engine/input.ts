@@ -94,8 +94,6 @@ export class PointerInput {
   /** Caisse sous le pointeur au clic en lecture : un clic simple zoome dessus. */
   private downCrate: Id | null = null;
   private crateClickZoom = true;
-  /** Appelé quand on tente de déplacer un livre en Lecture. */
-  private onEditDenied: (() => void) | null = null;
   /** Doigts actuellement posés : à deux, c'est un pincement (zoom), jamais un clic sur un livre. */
   private readonly touchIds = new Set<number>();
 
@@ -137,11 +135,6 @@ export class PointerInput {
   /** Un clic sur une caisse zoome dessus (désactivé sur téléphone : on zoome au pincement). */
   setCrateClickZoom(on: boolean): void {
     this.crateClickZoom = on;
-  }
-
-  /** Fonction appelée quand un geste cherche à modifier la bibliothèque en Lecture (null : rien). */
-  setEditDeniedHandler(handler: (() => void) | null): void {
-    this.onEditDenied = handler;
   }
 
   private setPointer(e: PointerEvent): void {
@@ -282,11 +275,8 @@ export class PointerInput {
     }
     const db = this.dragBook;
     if (db) {
-      // un livre ne se déplace pas : un glisser est signalé une fois (« pas touche ») et ignoré
-      if (!db.dragged && Math.hypot(e.clientX - db.sx, e.clientY - db.sy) >= 5) {
-        db.dragged = true;
-        if (e.pointerType !== 'touch') this.onEditDenied?.(); // au doigt, un glisser est un déplacement de la vue
-      }
+      // un livre ne se déplace pas : un glisser est ignoré
+      if (!db.dragged && Math.hypot(e.clientX - db.sx, e.clientY - db.sy) >= 5) db.dragged = true;
       return;
     }
     const d = this.drag;

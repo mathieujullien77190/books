@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import {
   KEY_STORAGE,
@@ -124,8 +124,7 @@ export const AiTab = ({
     end.current?.scrollIntoView({ block: 'nearest' });
   }, [turns, busy]);
 
-  const ask = (e: FormEvent): void => {
-    e.preventDefault();
+  const ask = (): void => {
     stopVoice(); // une nouvelle question coupe la réponse en cours
     void send(question);
   };
@@ -254,7 +253,7 @@ export const AiTab = ({
           {error}
         </p>
       )}
-      <form onSubmit={ask} className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-1.5">
         <TextArea
           className="block h-24 min-h-16 resize-y py-1.5 leading-relaxed"
           placeholder={
@@ -269,7 +268,7 @@ export const AiTab = ({
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
-              e.currentTarget.form?.requestSubmit();
+              ask();
             }
           }}
         />
@@ -299,14 +298,14 @@ export const AiTab = ({
           )}
           <Button
             variant="primary"
-            type="submit"
+            onClick={ask}
             loading={busy}
             disabled={!hasKey || !question.trim()}
           >
             Envoyer
           </Button>
         </div>
-      </form>
+      </div>
       {turns.length > 0 && (
         <button
           type="button"
